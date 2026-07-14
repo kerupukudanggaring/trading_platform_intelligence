@@ -1,0 +1,59 @@
+.status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: #0B0E14;
+  border-bottom: 1px solid #1B2030;
+  font-family: 'JetBrains Mono', monospace;
+  color: #9AA3B5;
+}
+
+.status-header__pair-name {
+  color: #D4AF37;
+  font-size: 20px;
+  font-weight: 700;
+  display: block;
+}
+
+.status-header__pair-sub {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: #6B7280;
+}
+
+.status-header__price {
+  text-align: center;
+}
+
+.status-header__price-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #E5E7EB;
+  display: block;
+}
+
+.status-header__price-label {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: #6B7280;
+}
+
+.status-header__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.status-header__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-header__time {
+  color: #6B7280;
+  margin-left: 8px;
+}
