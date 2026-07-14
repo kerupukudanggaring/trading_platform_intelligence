@@ -9,17 +9,17 @@ jobs:
       - name: Cek IP dan lokasi runner
         run: curl -s https://ipinfo.io
 
-      - name: Test akses Myfxbook
-        run: curl -s -o /dev/null -w "Myfxbook=%{http_code}\n" https://www.myfxbook.com
+      - name: Test akses Myfxbook (dengan User-Agent)
+        run: curl -s -o /dev/null -w "Myfxbook=%{http_code}\n" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" https://www.myfxbook.com
 
-      - name: Test akses Dukascopy
-        run: curl -s -o /dev/null -w "Dukascopy=%{http_code}\n" https://www.dukascopy.com
+      - name: Test akses Dukascopy (dengan User-Agent)
+        run: curl -s -o /dev/null -w "Dukascopy=%{http_code}\n" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" https://www.dukascopy.com
 
-      - name: Test akses Yahoo Finance
-        run: curl -s -o /dev/null -w "YahooFinance=%{http_code}\n" https://finance.yahoo.com
+      - name: Test akses Yahoo Finance (dengan User-Agent)
+        run: curl -s -o /dev/null -w "YahooFinance=%{http_code}\n" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" https://finance.yahoo.com
 
-      - name: Test akses ForexFactory
-        run: curl -s -o /dev/null -w "ForexFactory=%{http_code}\n" https://www.forexfactory.com
+      - name: Test akses ForexFactory (dengan User-Agent)
+        run: curl -s -o /dev/null -w "ForexFactory=%{http_code}\n" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" https://www.forexfactory.com
 
-      - name: Test akses CFTC
-        run: curl -s -o /dev/null -w "CFTC=%{http_code}\n" https://www.cftc.gov
+      - name: Test akses CFTC (dengan User-Agent)
+        run: curl -s -o /dev/null -w "CFTC=%{http_code}\n" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" https://www.cftc.gov
