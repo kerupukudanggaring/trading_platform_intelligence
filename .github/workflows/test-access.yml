@@ -1,0 +1,25 @@
+name: Test Access
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cek IP dan lokasi runner
+        run: curl -s https://ipinfo.io
+
+      - name: Test akses Myfxbook
+        run: curl -s -o /dev/null -w "Myfxbook: %{http_code}\n" https://www.myfxbook.com
+
+      - name: Test akses Dukascopy
+        run: curl -s -o /dev/null -w "Dukascopy: %{http_code}\n" https://www.dukascopy.com
+
+      - name: Test akses Yahoo Finance
+        run: curl -s -o /dev/null -w "Yahoo Finance: %{http_code}\n" https://finance.yahoo.com
+
+      - name: Test akses ForexFactory
+        run: curl -s -o /dev/null -w "ForexFactory: %{http_code}\n" https://www.forexfactory.com
+
+      - name: Test akses CFTC
+        run: curl -s -o /dev/null -w "CFTC: %{http_code}\n" https://www.cftc.gov
