@@ -145,95 +145,166 @@ def filter_relevant_events(events: list) -> list:
     return filtered
 
 
-def fetch_html_actuals(week_str: str | None = None) -> dict:
-    """Scrape actual values dari halaman Forex Factory HTML (bisa per minggu)."""
-    url = f"https://www.forexfactory.com/calendar?week={week_str}" if week_str else "https://www.forexfactory.com/calendar"
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-        )
-    }
-    actuals = {}
-    try:
-        html_text = ""
-        response = requests.get(url, headers=headers, timeout=15)
-        if response.status_code == 200 and "calendar__row" in response.text:
-            html_text = response.text
-        else:
-            logger.warning("Requests get Forex Factory HTML diblokir/Cloudflare (status %s), fallback ke Playwright Chromium...", response.status_code)
-            from playwright.sync_api import sync_playwright
-            with sync_playwright() as p:
-                browser = p.chromium.launch(
-                    headless=True,
-                    args=[
-                        "--disable-blink-features=AutomationControlled",
-                        "--no-sandbox",
-                        "--disable-setuid-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--disable-gpu",
-                    ],
-                )
-                ctx = browser.new_context(
-                    user_agent=headers["User-Agent"],
-                    viewport={"width": 1920, "height": 1080},
-                    locale="en-US",
-                )
-                page = ctx.new_page()
-                page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                try:
-                    page.wait_for_selector(".calendar__row", timeout=15000)
-                except Exception:
-                    page.wait_for_timeout(3000)
-                html_text = page.content()
-                browser.close()
 
-        if not html_text:
-            return actuals
-            
+# Mapping nama event Trading Economics -> Forex Factory
+# Key: nama di TE (lowercase), Value: nama di FF (exact match)
+TE_TO_FF_NAME_MAP = {
+    # CPI
+    "core inflation rate mom": "Core CPI m/m",
+    "core inflation rate yoy": "Core CPI y/y",
+    "inflation rate mom": "CPI m/m",
+    "inflation rate yoy": "CPI y/y",
+    # PPI (nama TE yang benar)
+    "ppi mom": "PPI m/m",
+    "ppi yoy": "PPI y/y",
+    "core ppi mom": "Core PPI m/m",
+    "core ppi yoy": "Core PPI y/y",
+    # PPI alias lama (fallback)
+    "producer price change mom": "PPI m/m",
+    "producer price change yoy": "PPI y/y",
+    "core producer prices mom": "Core PPI m/m",
+    "core producer prices yoy": "Core PPI y/y",
+    # Employment
+    "unemployment rate": "Unemployment Rate",
+    "non farm payrolls": "Non-Farm Employment Change",
+    "adp employment change": "ADP Non-Farm Employment Change",
+    "initial jobless claims": "Unemployment Claims",
+    "continuing jobless claims": "Continuing Jobless Claims",
+    # GDP
+    "gdp growth rate": "Preliminary GDP q/q",
+    "gdp growth rate qoq adv": "Advance GDP q/q",
+    "gdp growth rate qoq 2nd est": "Preliminary GDP q/q",
+    "gdp growth rate qoq final": "Final GDP q/q",
+    # Retail Sales
+    "retail sales mom": "Retail Sales m/m",
+    "core retail sales mom": "Core Retail Sales m/m",
+    "retail sales ex autos mom": "Retail Sales ex. Autos m/m",
+    # PMI
+    "ism manufacturing pmi": "ISM Manufacturing PMI",
+    "ism services pmi": "ISM Services PMI",
+    # Fed
+    "federal funds rate": "Federal Funds Rate",
+    "fomc interest rate decision": "Federal Funds Rate",
+    # Wages
+    "average hourly earnings mom": "Average Hourly Earnings m/m",
+    "average hourly earnings yoy": "Average Hourly Earnings y/y",
+    # Durable Goods
+    "durable goods orders mom": "Core Durable Goods Orders m/m",
+    "core durable goods orders mom": "Core Durable Goods Orders m/m",
+    # Housing
+    "housing starts": "Housing Starts",
+    "building permits": "Building Permits",
+    "building permits prel": "Building Permits",
+    "existing home sales": "Existing Home Sales",
+    # Consumer Sentiment
+    "consumer sentiment": "Prelim UoM Consumer Sentiment",
+    "michigan consumer sentiment": "Prelim UoM Consumer Sentiment",
+    "michigan consumer sentiment prel": "Prelim UoM Consumer Sentiment",
+    # Trade
+    "trade balance": "Trade Balance",
+    "current account": "Current Account",
+    # Industrial Production
+    "industrial production mom": "Industrial Production m/m",
+    "capacity utilization rate": "Capacity Utilization Rate",
+    "capacity utilization": "Capacity Utilization Rate",
+    # JOLTS
+    "jolt job openings": "JOLTS Job Openings",
+    "jolts job openings": "JOLTS Job Openings",
+    # Productivity
+    "nonfarm productivity qoq": "Non-Farm Productivity q/q",
+    "unit labor costs qoq": "Unit Labor Costs q/q",
+}
+
+
+def fetch_te_actuals() -> dict:
+    """Scrape actual values dari Trading Economics (tidak diblokir Cloudflare).
+    
+    Return: dict dengan key = nama event FF (string) dan value = actual (string).
+    Juga menyimpan key berupa tuple (date_str_WIB, ff_event_name) untuk matching presisi.
+    """
+    actuals = {}
+    url = "https://tradingeconomics.com/calendar"
+    try:
+        from playwright.sync_api import sync_playwright
         from bs4 import BeautifulSoup
-        import re
-        
+
+        logger.info("Scraping actuals dari Trading Economics via Playwright...")
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                ],
+            )
+            ctx = browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                ),
+                locale="en-US",
+                viewport={"width": 1920, "height": 1080},
+            )
+            page = ctx.new_page()
+            page.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+            )
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(5000)
+            html_text = page.content()
+            browser.close()
+
         soup = BeautifulSoup(html_text, "html.parser")
-        rows = soup.find_all("tr", class_="calendar__row")
-        
-        current_date_num = None
+        rows = soup.find_all("tr", attrs={"data-country": "united states"})
+        logger.info("Trading Economics: ditemukan %s baris US", len(rows))
+
         for row in rows:
-            day_breaker = row.find(class_="calendar__row--day-breaker")
-            if day_breaker:
-                txt = day_breaker.get_text(strip=True)
-                m = re.search(r"\d+", txt)
-                if m:
-                    current_date_num = int(m.group(0))
+            # Ambil tanggal dari class td (format: 2026-08-12)
+            date_td = None
+            for td in row.find_all("td"):
+                classes = td.get("class", [])
+                for cls in classes:
+                    if cls and len(cls) == 10 and cls.startswith("20"):
+                        date_td = cls
+                        break
+                if date_td:
+                    break
+
+            # Ambil nama event
+            event_link = row.find("a", class_="calendar-event")
+            if not event_link:
                 continue
-                
-            date_cell = row.find(class_="calendar__date")
-            if date_cell and date_cell.get_text(strip=True):
-                txt = date_cell.get_text(strip=True)
-                m = re.search(r"\d+", txt)
-                if m:
-                    current_date_num = int(m.group(0))
-                    
-            currency_cell = row.find(class_="calendar__currency")
-            if not currency_cell:
+            te_event_name = event_link.get_text(strip=True).lower()
+
+            # Ambil actual
+            actual_span = row.find("span", id="actual")
+            if not actual_span:
                 continue
-                
-            currency = currency_cell.get_text(strip=True)
-            event_cell = row.find(class_="calendar__event")
-            event_name = event_cell.get_text(strip=True) if event_cell else ""
-            
-            actual_cell = row.find(class_="calendar__actual")
-            actual = actual_cell.get_text(strip=True) if actual_cell else ""
-            
-            if event_name and currency and current_date_num is not None:
-                # key: (day_of_month, currency, event_name)
-                actuals[(current_date_num, currency, event_name)] = actual
-                
+            actual_val = actual_span.get_text(strip=True)
+            if not actual_val:
+                continue
+
+            # Map nama TE ke nama FF
+            ff_name = TE_TO_FF_NAME_MAP.get(te_event_name)
+            if ff_name:
+                # Simpan dengan key nama FF langsung
+                actuals[ff_name] = actual_val
+                # Simpan juga dengan key (date, ff_name) untuk presisi
+                if date_td:
+                    actuals[(date_td, ff_name)] = actual_val
+                logger.debug("TE actual: %s -> FF '%s' = %s", te_event_name, ff_name, actual_val)
+
+        logger.info(
+            "Total actual berhasil di-scrape dari Trading Economics: %s", len(actuals)
+        )
     except Exception as e:
-        logger.warning("Error saat scraping actual values dari HTML: %s", e)
-        
+        logger.warning("Error scraping Trading Economics: %s", e)
+
     return actuals
+
+
 
 
 def calculate_macro_score(event_name: str, actual: str | None, forecast: str | None, previous: str | None) -> int:
@@ -386,19 +457,13 @@ def save_events(events: list) -> int:
                     # Juga scrape minggu saat ini (bisa berbeda)
                     needs_scraping.add(None)
 
-    # Tambahkan paksa minggu lalu untuk menutupi gap event jumat yang belum ada actualnya
-    last_week_dt = datetime.now(timezone.utc) - timedelta(days=7)
-    needs_scraping.add(_get_week_str_for_event(last_week_dt))
-
-    # Langkah 2: Scrape HTML hanya untuk minggu yang benar-benar butuh actual baru
+    # Langkah 2: Scrape actuals dari Trading Economics (reliable, tidak diblokir Cloudflare)
+    # Selalu jalankan jika ada event yang belum punya actual di DB
     html_actuals = {}
-    for week_str in needs_scraping:
-        label = week_str or "minggu ini"
-        logger.info("Scraping HTML actuals untuk minggu: %s", label)
-        w_actuals = fetch_html_actuals(week_str)
-        html_actuals.update(w_actuals)
+    if needs_scraping or True:  # Selalu jalankan untuk memastikan data terbaru
+        html_actuals = fetch_te_actuals()
 
-    logger.info("Total actual values yang berhasil di-scrape dari HTML: %s", len(html_actuals))
+    logger.info("Total actual values dari Trading Economics: %s", len(html_actuals))
 
     # Langkah 3: Lakukan INSERT/UPDATE dengan data yang sudah lengkap
     insert_query = """
@@ -438,9 +503,11 @@ def save_events(events: list) -> int:
                 existing_forecast = db_info.get("forecast")
                 existing_previous = db_info.get("previous")
 
+                # Cari actual dari TE: coba dulu dengan (date, ff_name) presisi, lalu dengan ff_name saja
+                event_date_wib = event_time.astimezone(JAKARTA_TZ).strftime("%Y-%m-%d")
                 scraped_actual = (
-                    html_actuals.get((day_local, country, title))
-                    or html_actuals.get((day_utc, country, title))
+                    html_actuals.get((event_date_wib, title))
+                    or html_actuals.get(title)
                 )
                 # Bersihkan string kosong dari scraping (bisa "" jika belum rilis)
                 scraped_actual = scraped_actual if scraped_actual and scraped_actual.strip() else None
@@ -492,8 +559,8 @@ def save_events(events: list) -> int:
                 day_local = r_event_time_utc.astimezone(JAKARTA_TZ).day
                 
                 scraped_actual = (
-                    html_actuals.get((day_local, r_country, r_title))
-                    or html_actuals.get((day_utc, r_country, r_title))
+                    html_actuals.get((r_event_time_utc.astimezone(JAKARTA_TZ).strftime("%Y-%m-%d"), r_title))
+                    or html_actuals.get(r_title)
                 )
                 scraped_actual = scraped_actual if scraped_actual and scraped_actual.strip() else None
                 
