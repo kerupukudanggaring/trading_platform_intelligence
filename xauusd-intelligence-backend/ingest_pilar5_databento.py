@@ -199,17 +199,20 @@ def calculate_footprint_30m(df: pd.DataFrame) -> list:
         delta = buy_vol - sell_vol
         cum_delta += delta
         
-        price_range = high_p - low_p
-        if price_range <= 1.50:
-            num_bins = 5
-        elif price_range <= 3.00:
-            num_bins = 10
-        else:
-            num_bins = 20
+        import numpy as np
+        step = 0.5
+        
+        # Hitung batas atas dan bawah bin kelipatan 0.5
+        min_bin = np.floor(low_p / step) * step
+        max_bin = np.ceil(high_p / step) * step
+        if max_bin == min_bin:
+            max_bin += step
+            
+        bins = np.arange(min_bin, max_bin + step, step)
             
         group_copy = group.copy()
-        if num_bins > 1 and high_p > low_p:
-            group_copy['bin'] = pd.cut(group_copy['price'], bins=num_bins)
+        if len(bins) > 1:
+            group_copy['bin'] = pd.cut(group_copy['price'], bins=bins, include_lowest=True)
         else:
             group_copy['bin'] = group_copy['price']
             
@@ -364,6 +367,8 @@ def save_raw_footprint_to_db(data_list: list):
         conn.commit()
 
 
+import re
+
 def process_date(target_date: str):
     logger.info(f"Processing databento trades for {target_date}...")
     if not API_KEY:
@@ -381,15 +386,30 @@ def process_date(target_date: str):
     else:
         end_time = f"{target_date}T23:59:59"
     
+    def fetch_with_retry(start_str, end_str, attempt=1):
+        try:
+            return client.timeseries.get_range(
+                dataset="GLBX.MDP3",
+                schema="trades",
+                symbols="GC.n.0",
+                stype_in="continuous",
+                start=start_str,
+                end=end_str,
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if "dataset_unavailable_range" in error_msg and attempt == 1:
+                # Extract suggested end time using regex
+                # Error format: "Try again with an end time before 2026-08-20T22:06:01.852023000Z."
+                match = re.search(r"end time before ([0-9T:\.-]+Z)", error_msg)
+                if match:
+                    suggested_end = match.group(1)
+                    logger.warning(f"Databento 422 error. Retrying with suggested end_time: {suggested_end}")
+                    return fetch_with_retry(start_str, suggested_end, attempt=2)
+            raise e
+
     try:
-        data = client.timeseries.get_range(
-            dataset="GLBX.MDP3",
-            schema="trades",
-            symbols="GC.n.0",
-            stype_in="continuous",
-            start=f"{target_date}T00:00:00",
-            end=end_time,
-        )
+        data = fetch_with_retry(f"{target_date}T00:00:00", end_time)
         df = data.to_df()
         if df.empty:
             logger.warning(f"No trades found for {target_date}")
@@ -411,7 +431,10 @@ def process_date(target_date: str):
             logger.info(f"Saved RAW backup footprint for {target_date} ({len(raw_footprint_data)} intervals)")
             
     except Exception as e:
-        logger.error(f"Error processing {target_date}: {e}")
+        if "data_time_range_start_on_or_after_end" in str(e):
+            logger.warning(f"Data for {target_date} is not yet available due to Databento's delay rules.")
+        else:
+            logger.error(f"Error processing {target_date}: {e}")
 
 def get_existing_dates_in_db() -> set:
     """Ambil semua tanggal yang sudah ada di volume_profile_daily."""
@@ -441,8 +464,11 @@ def main():
         # Skip weekend
         if candidate.weekday() >= 5:
             continue
-        # Jika tanggal sudah ada di DB dan bukan hari ini, skip
-        if candidate_str in existing_dates and candidate_str != today_utc.strftime("%Y-%m-%d"):
+        yesterday_utc_str = (today_utc - timedelta(days=1)).strftime("%Y-%m-%d")
+        today_utc_str = today_utc.strftime("%Y-%m-%d")
+        
+        # Jika tanggal sudah ada di DB dan bukan hari ini atau kemarin, skip
+        if candidate_str in existing_dates and candidate_str not in (today_utc_str, yesterday_utc_str):
             logger.info(f"Skipping {candidate_str} - already in DB")
             continue
         dates_to_process.append(candidate_str)

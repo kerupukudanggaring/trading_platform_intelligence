@@ -1,33 +1,87 @@
 import { useEffect, useRef } from "react";
 import { createChart, CrosshairMode } from "lightweight-charts";
-import { VolumeProfilePrimitive } from "./VolumeProfilePrimitive";
-
-// Lightweight Charts selalu memformat label sumbu-waktu pakai UTC (default library),
-// terlepas dari timezone browser/OS. Karena DB kita sekarang menyimpan waktu UTC yang
-// BENAR (setelah fix ingest_pilar1.py), kita perlu geser +7 jam di level tampilan
-// supaya axis chart menunjukkan jam WIB yang sesuai jam dinding Jakarta -- dan supaya
-// PriceChart, RsiChart, dan RetailSentimentChart semuanya align di jam yang sama.
-const WIB_OFFSET_SECONDS = 7 * 3600;
+import { buildIndexTimeMap, isWeekendTimestamp, withIndexTimeFormatting } from "./chartTimeUtils";
+import { renderVolumeProfileOverlay } from "./volumeProfileUtils";
 
 /**
  * PriceChart
  * Merender candlestick XAUUSD + overlay MA50, MA200, dan Bollinger Bands.
- *
- * Props:
- *  - data: array hasil dari fetchTechnicalData()
- *  - onVisibleRangeChange: callback(range) dipanggil setiap user scroll/zoom,
- *    dipakai untuk sinkronisasi dengan RsiChart di bawahnya
- *  - chartApiRef: ref opsional untuk expose chart instance ke parent
- *    (dipakai supaya RsiChart bisa disinkronkan dari parent)
+ * Menggunakan volumeProfileUtils.js untuk rendering Fixed Range Volume Profile (FRVP).
  */
-export default function PriceChart({ data, onVisibleRangeChange, chartApiRef }) {
+export default function PriceChart({ data, onVisibleRangeChange, chartApiRef, volumeProfile }) {
+  const MAX_POINTS = 10000;
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef({});
-  const isSyncingRef = useRef(false);
-  const volumeProfilePrimitiveRef = useRef(null);
+  const timeMapRef = useRef(new Map());
+  const visibleDataRef = useRef([]);
+  const lastDataHashRef = useRef("");
+  const latestDataRef = useRef(null);
+  const frvpCanvasRef = useRef(null);
+  const volumeProfileRef = useRef(null);
 
-  // Setup chart sekali saat mount
+  // Synchronize volumeProfile ref
+  useEffect(() => {
+    volumeProfileRef.current = volumeProfile;
+    drawFRVP();
+  }, [volumeProfile]);
+
+  const getVisibleBarsForLatestView = (total) => {
+    if (!total || total <= 0) return 50;
+    return 50;
+  };
+
+  const jumpToLatest = () => {
+    if (!chartRef.current) return;
+    const total = latestDataRef.current || 0;
+    if (total > 0) {
+      const visibleBars = getVisibleBarsForLatestView(total);
+      chartRef.current.timeScale().setVisibleLogicalRange({
+        from: Math.max(0, total - visibleBars),
+        to: total - 1,
+      });
+    }
+  };
+
+  /**
+   * Draw FRVP overlay on high-res canvas above lightweight-charts.
+   */
+  const drawFRVP = () => {
+    requestAnimationFrame(() => {
+      const chart = chartRef.current;
+      const canvas = frvpCanvasRef.current;
+      const vp = volumeProfileRef.current;
+      const visibleData = visibleDataRef.current;
+      const candleSeries = seriesRef.current?.candleSeries;
+
+      if (!chart || !canvas || !visibleData || visibleData.length === 0 || !candleSeries) return;
+
+      const ctx = canvas.getContext("2d");
+      const dpr = window.devicePixelRatio || 1;
+
+      const parent = canvas.parentElement;
+      if (!parent) return;
+      const rect = parent.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+
+      renderVolumeProfileOverlay({
+        ctx,
+        chart,
+        candleSeries,
+        volumeProfile: vp,
+        visibleData,
+        rect,
+        dpr,
+      });
+    });
+  };
+
+  // Setup chart once on mount
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -42,10 +96,25 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef }) 
         horzLines: { color: "#1B2030" },
       },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: "#232838" },
-      timeScale: { borderColor: "#232838", timeVisible: true, secondsVisible: false },
+      rightPriceScale: {
+        borderColor: "#232838",
+        autoScale: true,
+        scaleMargins: {
+          top: 0.03,
+          bottom: 0.03,
+        },
+      },
+      timeScale: {
+        borderColor: "#232838",
+        timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 3,
+        barSpacing: 12,
+        minBarSpacing: 4,
+      },
       width: containerRef.current.clientWidth,
       height: 480,
+      ...withIndexTimeFormatting(timeMapRef),
     });
 
     const candleSeries = chart.addCandlestickSeries({
@@ -57,32 +126,26 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef }) 
       wickDownColor: "#EF5350",
     });
 
-    // Volume Profile: custom primitive, di-attach ke candleSeries supaya
-    // bisa akses priceToCoordinate() dari series ini untuk gambar histogram.
-    const volumeProfilePrimitive = new VolumeProfilePrimitive();
-    candleSeries.attachPrimitive(volumeProfilePrimitive);
-    volumeProfilePrimitiveRef.current = volumeProfilePrimitive;
-
     const ma50Series = chart.addLineSeries({
       color: "#D4AF37",
       lineWidth: 2,
       title: "MA50",
+      autoscaleInfoProvider: () => null,
     });
 
     const ma200Series = chart.addLineSeries({
       color: "#6E9BF4",
       lineWidth: 2,
       title: "MA200",
+      autoscaleInfoProvider: () => null,
     });
 
-    // Bollinger Bands: upper & lower digambar sebagai garis putus-putus tipis,
-    // middle biasanya SAMA dengan MA20 jadi kita bikin agak transparan
-    // supaya tidak terlalu ramai dibanding MA50/MA200 yang sudah ada.
     const bbUpperSeries = chart.addLineSeries({
       color: "rgba(160, 160, 190, 0.6)",
       lineWidth: 1,
-      lineStyle: 2, // dashed
+      lineStyle: 2,
       title: "BB Upper",
+      autoscaleInfoProvider: () => null,
     });
 
     const bbMiddleSeries = chart.addLineSeries({
@@ -90,6 +153,7 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef }) 
       lineWidth: 1,
       lineStyle: 2,
       title: "BB Middle",
+      autoscaleInfoProvider: () => null,
     });
 
     const bbLowerSeries = chart.addLineSeries({
@@ -97,6 +161,7 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef }) 
       lineWidth: 1,
       lineStyle: 2,
       title: "BB Lower",
+      autoscaleInfoProvider: () => null,
     });
 
     chartRef.current = chart;
@@ -109,24 +174,31 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef }) 
       bbLowerSeries,
     };
 
-    // Expose chart instance ke parent (untuk sinkronisasi dengan RsiChart)
     if (chartApiRef) {
       chartApiRef.current = chart;
     }
 
-    // Broadcast perubahan visible range ke parent, supaya RsiChart ikut geser/zoom
-    if (onVisibleRangeChange) {
-      chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-        if (isSyncingRef.current) return; // cegah loop balik dari sinkronisasi
+    chart.isSyncing = false;
+
+    const syncToOtherCharts = (range) => {
+      if (typeof onVisibleRangeChange === "function") {
         onVisibleRangeChange(range);
-      });
-    }
+      }
+    };
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (chart.isSyncing || !range) return;
+      syncToOtherCharts(range);
+      drawFRVP();
+    });
 
     const handleResize = () => {
       if (containerRef.current) {
         chart.applyOptions({ width: containerRef.current.clientWidth });
+        drawFRVP();
       }
     };
+
     window.addEventListener("resize", handleResize);
 
     return () => {
@@ -135,65 +207,98 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef }) 
     };
   }, []);
 
-  // Fetch data Volume Profile sekali saat mount, lalu masukkan ke primitive.
-  // Terpisah dari useEffect [data] utama, karena sumbernya beda endpoint
-  // (gold_futures_price_raw, bukan price_data_raw/technical_indicators).
-  useEffect(() => {
-    const fetchVolumeProfile = async () => {
-      try {
-        const response = await fetch("http://localhost:8000/api/v1/xauusd/volume-profile");
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const profiles = await response.json();
-
-        if (volumeProfilePrimitiveRef.current) {
-          volumeProfilePrimitiveRef.current.setData(profiles);
-        }
-      } catch (err) {
-        console.error("[ERROR] Gagal fetch volume-profile:", err);
-      }
-    };
-
-    fetchVolumeProfile();
-  }, []);
-
-  // Update data setiap kali props berubah (misal: setelah polling jam-an)
+  // Update data whenever props change
   useEffect(() => {
     if (!data || data.length === 0 || !seriesRef.current.candleSeries) return;
 
-    // + WIB_OFFSET_SECONDS -> supaya label sumbu-waktu Lightweight Charts (yang selalu
-    // format UTC) menampilkan jam WIB yang benar, dan align dengan RsiChart & RetailSentimentChart.
-    const toUnixTime = (isoString) =>
-      Math.floor(new Date(isoString).getTime() / 1000) + WIB_OFFSET_SECONDS;
+    const visibleData = (data || [])
+      .filter((d) => !isWeekendTimestamp(d.timestamp))
+      .slice(-MAX_POINTS);
+    visibleDataRef.current = visibleData;
+    timeMapRef.current = buildIndexTimeMap(visibleData);
 
-    const candleData = data.map((d) => ({
-      time: toUnixTime(d.timestamp),
-      open: d.open,
-      high: d.high,
-      low: d.low,
-      close: d.close,
-    }));
+    const MIN_CANDLE_RANGE = 4.00; // Proporsional dengan candle tanggal 28/29 Juli (garis sumbu jelas)
+    const MIN_BODY_RANGE = 2.40;   // Proporsional dengan candle tanggal 28/29 Juli (bodi tebal & rapih)
 
-    const ma50Data = data
-      .filter((d) => d.ma50 !== null && d.ma50 !== undefined)
-      .map((d) => ({ time: toUnixTime(d.timestamp), value: d.ma50 }));
+    let previousClose = null;
 
-    const ma200Data = data
-      .filter((d) => d.ma200 !== null && d.ma200 !== undefined)
-      .map((d) => ({ time: toUnixTime(d.timestamp), value: d.ma200 }));
+    const candleData = visibleData.map((d, index) => {
+      let open = d.open;
+      let high = d.high;
+      let low = d.low;
+      let close = d.close;
 
-    // Bollinger Bands nested di dalam d.bollinger_bands (bisa null di 19 candle
-    // pertama karena warm-up period, sama seperti MA50/MA200)
-    const bbUpperData = data
-      .filter((d) => d.bollinger_bands?.upper !== null && d.bollinger_bands?.upper !== undefined)
-      .map((d) => ({ time: toUnixTime(d.timestamp), value: d.bollinger_bands.upper }));
+      // 1. Force open to equal previous close to ELIMINATE VERTICAL GAPS
+      if (previousClose !== null) {
+        open = previousClose;
+        high = Math.max(high, open);
+        low = Math.min(low, open);
+      }
+      previousClose = close;
 
-    const bbMiddleData = data
-      .filter((d) => d.bollinger_bands?.middle !== null && d.bollinger_bands?.middle !== undefined)
-      .map((d) => ({ time: toUnixTime(d.timestamp), value: d.bollinger_bands.middle }));
+      // 2. Apply minimum ranges for extremely flat consolidation candles
+      const range = high - low;
+      if (range < MIN_CANDLE_RANGE) {
+        const pad = (MIN_CANDLE_RANGE - range) / 2;
+        high = high + pad;
+        low = low - pad;
+      }
 
-    const bbLowerData = data
-      .filter((d) => d.bollinger_bands?.lower !== null && d.bollinger_bands?.lower !== undefined)
-      .map((d) => ({ time: toUnixTime(d.timestamp), value: d.bollinger_bands.lower }));
+      const bodyRange = Math.abs(close - open);
+      if (bodyRange < MIN_BODY_RANGE) {
+        const pad = (MIN_BODY_RANGE - bodyRange) / 2;
+        if (close >= open) {
+          close = close + pad;
+          open = Math.max(low, open - pad);
+        } else {
+          open = open + pad;
+          close = Math.max(low, close - pad);
+        }
+      }
+
+      return {
+        time: index,
+        open,
+        high,
+        low,
+        close,
+      };
+    });
+
+    const ma50Data = visibleData.map((d, index) => {
+      if (d.ma50 === null || d.ma50 === undefined) {
+        return { time: index };
+      }
+      return { time: index, value: d.ma50 };
+    });
+
+    const ma200Data = visibleData.map((d, index) => {
+      if (d.ma200 === null || d.ma200 === undefined) {
+        return { time: index };
+      }
+      return { time: index, value: d.ma200 };
+    });
+
+    const bbUpperData = visibleData.map((d, index) => {
+      if (d.bollinger_bands?.upper === null || d.bollinger_bands?.upper === undefined) {
+        return { time: index };
+      }
+      return { time: index, value: d.bollinger_bands.upper };
+    });
+
+    const bbMiddleData = visibleData.map((d, index) => {
+      if (d.bollinger_bands?.middle === null || d.bollinger_bands?.middle === undefined) {
+        return { time: index };
+      }
+      return { time: index, value: d.bollinger_bands.middle };
+    });
+
+    const bbLowerData = visibleData.map((d, index) => {
+      if (d.bollinger_bands?.lower === null || d.bollinger_bands?.lower === undefined) {
+        return { time: index };
+      }
+      return { time: index, value: d.bollinger_bands.lower };
+    });
 
     seriesRef.current.candleSeries.setData(candleData);
     seriesRef.current.ma50Series.setData(ma50Data);
@@ -202,15 +307,53 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef }) 
     seriesRef.current.bbMiddleSeries.setData(bbMiddleData);
     seriesRef.current.bbLowerSeries.setData(bbLowerData);
 
-    chartRef.current.timeScale().fitContent();
+    const total = candleData.length;
+    latestDataRef.current = total;
+    const VISIBLE_BARS = getVisibleBarsForLatestView(total);
+    requestAnimationFrame(() => {
+      if (!chartRef.current) return;
+      if (total > VISIBLE_BARS) {
+        chartRef.current.timeScale().setVisibleLogicalRange({
+          from: Math.max(0, total - VISIBLE_BARS),
+          to: total - 1,
+        });
+      } else {
+        chartRef.current.timeScale().fitContent();
+      }
+      drawFRVP();
+    });
   }, [data]);
 
-  // Terima perintah sinkronisasi range dari parent (dipicu oleh RsiChart)
   useEffect(() => {
     if (chartApiRef) {
       chartApiRef.current = chartRef.current;
     }
   }, [chartApiRef]);
 
-  return <div ref={containerRef} className="price-chart" />;
+  return (
+    <div className="price-chart-wrapper">
+      <div className="price-chart-toolbar">
+        <button type="button" className="price-chart-jump-btn" onClick={jumpToLatest}>
+          Latest
+        </button>
+      </div>
+      <div style={{ position: "relative", width: "100%", height: "480px" }}>
+        <div ref={containerRef} className="price-chart" style={{ width: "100%", height: "100%" }} />
+        <canvas
+          ref={frvpCanvasRef}
+          className="frvp-overlay"
+          style={{
+            display: "block",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            zIndex: 20,
+          }}
+        />
+      </div>
+    </div>
+  );
 }

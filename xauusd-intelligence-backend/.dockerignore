@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+.pytest_cache/
+*.xls
+*.xlsx
+*.html
+*.json
+myfxbook_debug.html
+myfxbook_api_debug.json
+.git/
+.env

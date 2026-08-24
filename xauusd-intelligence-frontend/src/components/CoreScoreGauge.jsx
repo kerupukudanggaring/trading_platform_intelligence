@@ -3,8 +3,13 @@ import "./CoreScoreGauge.css";
 
 /**
  * CoreScoreGauge: Gauge meter melingkar untuk menampilkan Intelligence Core Score.
- * Skala: -50 (Strong Bearish) hingga +50 (Strong Bullish)
- * Warna: Merah (Bearish) → Kuning (Neutral) → Hijau (Bullish)
+ * Skala: -1.00 (Strong Bearish) hingga +1.00 (Strong Bullish)
+ * Sesuai BRD Tabel Klasifikasi Skor:
+ *   +0.61 s/d +1.00  Strong Bullish
+ *   +0.21 s/d +0.60  Mild Bullish
+ *   -0.20 s/d +0.20  Neutral / Sideways
+ *   -0.21 s/d -0.60  Mild Bearish
+ *   -0.61 s/d -1.00  Strong Bearish
  */
 function CoreScoreGauge({ score = 0, label = "neutral" }) {
   const [displayScore, setDisplayScore] = useState(score || 0);
@@ -32,9 +37,10 @@ function CoreScoreGauge({ score = 0, label = "neutral" }) {
     return () => cancelAnimationFrame(animationFrameId);
   }, [score]);
 
-  // Konversi skor (-50 hingga +50) ke derajat gauge (0 hingga 180)
-  // -50 = 0°, 0 = 90°, +50 = 180°
-  const angle = (displayScore + 50) * 1.8; // 180 / 100 = 1.8
+  // Konversi skor (-1.0 hingga +1.0) ke derajat gauge (0 hingga 180)
+  // -1.0 = 0°, 0 = 90°, +1.0 = 180°
+  const clampedScore = Math.max(-1, Math.min(1, displayScore));
+  const angle = (clampedScore + 1) * 90; // 180 / 2 = 90
   const radians = (angle - 90) * (Math.PI / 180); // Konversi ke radian, shift 90° karena SVG starts at 3 o'clock
   const needleLength = 60;
   const centerX = 100;
@@ -42,12 +48,12 @@ function CoreScoreGauge({ score = 0, label = "neutral" }) {
   const needleX = centerX + needleLength * Math.cos(radians);
   const needleY = centerY + needleLength * Math.sin(radians);
 
-  // Tentukan warna berdasarkan score
+  // Tentukan warna berdasarkan score (sesuai BRD)
   let gaugeColor = "#FFA500"; // Default kuning (neutral)
-  if (displayScore < -25) gaugeColor = "#E74C3C"; // Strong bearish (merah gelap)
-  else if (displayScore < -10) gaugeColor = "#FF6B6B"; // Weak bearish (merah)
-  else if (displayScore < 10) gaugeColor = "#FFA500"; // Neutral (kuning)
-  else if (displayScore < 25) gaugeColor = "#52C41A"; // Weak bullish (hijau)
+  if (displayScore <= -0.61) gaugeColor = "#E74C3C"; // Strong bearish (merah gelap)
+  else if (displayScore <= -0.21) gaugeColor = "#FF6B6B"; // Mild bearish (merah)
+  else if (displayScore < 0.21) gaugeColor = "#FFA500"; // Neutral (kuning)
+  else if (displayScore < 0.61) gaugeColor = "#52C41A"; // Mild bullish (hijau)
   else gaugeColor = "#1E8449"; // Strong bullish (hijau gelap)
 
   return (
@@ -113,8 +119,8 @@ function CoreScoreGauge({ score = 0, label = "neutral" }) {
 
         {/* Score Display */}
         <div className="score-display">
-          <div className="score-value">{Math.round(displayScore)}</div>
-          <div className="score-label">{label || "neutral"}</div>
+          <div className="score-value">{displayScore >= 0 ? "+" : ""}{displayScore.toFixed(2)}</div>
+          <div className="score-label">{(label || "neutral").replace("_", " ")}</div>
         </div>
       </div>
 
@@ -122,23 +128,23 @@ function CoreScoreGauge({ score = 0, label = "neutral" }) {
       <div className="score-range-info">
         <div className="range-item">
           <span className="range-label">Strong Bearish</span>
-          <span className="range-value">≤ -25</span>
+          <span className="range-value">-1.00 ~ -0.61</span>
         </div>
         <div className="range-item">
-          <span className="range-label">Weak Bearish</span>
-          <span className="range-value">-25 ~ -10</span>
+          <span className="range-label">Mild Bearish</span>
+          <span className="range-value">-0.60 ~ -0.21</span>
         </div>
         <div className="range-item">
           <span className="range-label">Neutral</span>
-          <span className="range-value">-9 ~ 9</span>
+          <span className="range-value">-0.20 ~ +0.20</span>
         </div>
         <div className="range-item">
-          <span className="range-label">Weak Bullish</span>
-          <span className="range-value">10 ~ 24</span>
+          <span className="range-label">Mild Bullish</span>
+          <span className="range-value">+0.21 ~ +0.60</span>
         </div>
         <div className="range-item">
           <span className="range-label">Strong Bullish</span>
-          <span className="range-value">≥ 25</span>
+          <span className="range-value">+0.61 ~ +1.00</span>
         </div>
       </div>
     </div>

@@ -14,7 +14,7 @@ Keterbatasan yfinance yang perlu diketahui:
 - yfinance adalah library TIDAK RESMI (scraping endpoint internal Yahoo),
   jadi berpotensi berhenti berfungsi kalau Yahoo mengubah struktur mereka.
 
-Jadwal: dijalankan tiap jam, mirip ingest_pilar1.py.
+Jadwal: dijalankan tiap 30 menit, sinkron dengan job ingest harga dan indikator.
 """
 
 import os
@@ -63,12 +63,12 @@ def get_db_connection():
 
 def fetch_gold_futures_data(period: str = "60d"):
     """
-    Ambil data OHLCV Gold Futures per jam dari Yahoo Finance.
+    Ambil data OHLCV Gold Futures per 30 menit dari Yahoo Finance.
     period="60d" cukup untuk backfill awal (data proyek ini baru mulai ~akhir Mei 2026).
-    Kalau perlu histori lebih jauh, naikkan ke "730d" (maksimum yfinance untuk data 1 jam).
+    Kalau perlu histori lebih jauh, naikkan ke "730d" (maksimum yfinance untuk data 30 menit).
     """
     ticker = yf.Ticker(GOLD_FUTURES_SYMBOL)
-    df = ticker.history(period=period, interval="1h")
+    df = ticker.history(period=period, interval="30m")
 
     if df.empty:
         logger.error("Tidak ada data yang dikembalikan dari Yahoo Finance.")
@@ -89,7 +89,12 @@ def save_to_database(df) -> None:
     insert_query = """
         INSERT INTO gold_futures_price_raw (timestamp, open, high, low, close, volume)
         VALUES (%s, %s, %s, %s, %s, %s)
-        ON CONFLICT (timestamp) DO NOTHING;
+        ON CONFLICT (timestamp) DO UPDATE SET
+            open = EXCLUDED.open,
+            high = EXCLUDED.high,
+            low = EXCLUDED.low,
+            close = EXCLUDED.close,
+            volume = EXCLUDED.volume;
     """
 
     inserted_count = 0

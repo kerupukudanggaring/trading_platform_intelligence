@@ -1,10 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createChart } from "lightweight-charts";
-
-// Sama seperti PriceChart.jsx: Lightweight Charts selalu format label sumbu-waktu
-// pakai UTC (default library). Karena DB sekarang menyimpan UTC yang benar, kita
-// geser +7 jam di tampilan supaya axis RSI align dengan PriceChart & RetailSentimentChart.
-const WIB_OFFSET_SECONDS = 7 * 3600;
+import { buildIndexTimeMap, isWeekendTimestamp, withIndexTimeFormatting } from "./chartTimeUtils";
 
 /**
  * RsiChart
@@ -18,10 +14,44 @@ const WIB_OFFSET_SECONDS = 7 * 3600;
  *    untuk sinkronisasi scroll/zoom dua arah
  */
 export default function RsiChart({ data, priceChartApiRef }) {
+  const MAX_POINTS = 10000;
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const rsiSeriesRef = useRef(null);
-  const isSyncingRef = useRef(false);
+  const timeMapRef = useRef(new Map());
+  const latestDataRef = useRef(null);
+
+  const getVisibleBarsForLatestView = (total) => {
+    if (!total || total <= 0) return 40;
+    return Math.max(40, Math.min(120, Math.round(total * 0.04)));
+  };
+
+  const jumpToLatest = () => {
+    if (!chartRef.current) return;
+    const total = latestDataRef.current || 0;
+    if (total > 0) {
+      const visibleBars = getVisibleBarsForLatestView(total);
+      chartRef.current.timeScale().setVisibleLogicalRange({
+        from: Math.max(0, total - visibleBars),
+        to: total - 1,
+      });
+    }
+  };
+
+  const scheduleVisibleRangeSync = (range, targetChart) => {
+    if (!targetChart || !range) return;
+    const currentRange = targetChart.timeScale().getVisibleLogicalRange();
+    if (currentRange) {
+      const diffFrom = Math.abs(currentRange.from - range.from);
+      const diffTo = Math.abs(currentRange.to - range.to);
+      if (diffFrom < 0.01 && diffTo < 0.01) {
+        return;
+      }
+    }
+    targetChart.isSyncing = true;
+    targetChart.timeScale().setVisibleLogicalRange(range);
+    targetChart.isSyncing = false;
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -41,9 +71,16 @@ export default function RsiChart({ data, priceChartApiRef }) {
         // RSI selalu di skala 0-100, dikunci supaya tidak auto-scale aneh
         scaleMargins: { top: 0.1, bottom: 0.1 },
       },
-      timeScale: { borderColor: "#232838", timeVisible: true, secondsVisible: false },
+      timeScale: {
+        borderColor: "#232838",
+        timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 0,
+        barSpacing: 4,
+      },
       width: containerRef.current.clientWidth,
       height: 160,
+      ...withIndexTimeFormatting(timeMapRef),
     });
 
     // Area chart (garis + fill tipis di bawah) supaya RSI lebih "berbobot"
@@ -83,13 +120,12 @@ export default function RsiChart({ data, priceChartApiRef }) {
 
     // --- Sinkronisasi dua arah dengan PriceChart ---
     // Kalau user scroll/zoom di panel RSI ini, ikutkan chart harga di atasnya
+    chart.isSyncing = false;
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (isSyncingRef.current || !range) return;
+      if (chart.isSyncing || !range) return;
       const priceChart = priceChartApiRef?.current;
       if (priceChart) {
-        isSyncingRef.current = true;
-        priceChart.timeScale().setVisibleLogicalRange(range);
-        isSyncingRef.current = false;
+        scheduleVisibleRangeSync(range, priceChart);
       }
     });
 
@@ -112,10 +148,8 @@ export default function RsiChart({ data, priceChartApiRef }) {
     if (!priceChart || !chartRef.current) return;
 
     const handlePriceChartRangeChange = (range) => {
-      if (isSyncingRef.current || !range) return;
-      isSyncingRef.current = true;
-      chartRef.current.timeScale().setVisibleLogicalRange(range);
-      isSyncingRef.current = false;
+      if (chartRef.current.isSyncing || !range) return;
+      scheduleVisibleRangeSync(range, chartRef.current);
     };
 
     priceChart.timeScale().subscribeVisibleLogicalRangeChange(handlePriceChartRangeChange);
@@ -128,24 +162,28 @@ export default function RsiChart({ data, priceChartApiRef }) {
   useEffect(() => {
     if (!data || data.length === 0 || !rsiSeriesRef.current) return;
 
-    // + WIB_OFFSET_SECONDS -> supaya align dengan PriceChart & RetailSentimentChart
-    const toUnixTime = (isoString) =>
-      Math.floor(new Date(isoString).getTime() / 1000) + WIB_OFFSET_SECONDS;
+    const visibleData = (data || [])
+      .filter((d) => !isWeekendTimestamp(d.timestamp))
+      .slice(-MAX_POINTS);
+    timeMapRef.current = buildIndexTimeMap(visibleData);
 
-    const rsiData = data
-      .filter((d) => d.rsi !== null && d.rsi !== undefined)
-      .map((d) => ({ time: toUnixTime(d.timestamp), value: d.rsi }));
+    const rsiData = visibleData.map((d, index) => {
+      if (d.rsi === null || d.rsi === undefined) {
+        return { time: index };
+      }
+      return { time: index, value: d.rsi };
+    });
 
     rsiSeriesRef.current.setData(rsiData);
 
-    // Sama seperti PriceChart: default tampilin ~300 candle terakhir aja.
-    // PENTING: angka ini harus SAMA dengan VISIBLE_BARS di PriceChart.jsx
-    const VISIBLE_BARS = 300;
+    // Default tampilkan bagian akhir chart supaya awal render lebih ringan.
     const total = rsiData.length;
+    latestDataRef.current = total;
+    const VISIBLE_BARS = getVisibleBarsForLatestView(total);
 
     if (total > VISIBLE_BARS) {
       chartRef.current.timeScale().setVisibleLogicalRange({
-        from: total - VISIBLE_BARS,
+        from: Math.max(0, total - VISIBLE_BARS),
         to: total - 1,
       });
     } else {
@@ -153,5 +191,14 @@ export default function RsiChart({ data, priceChartApiRef }) {
     }
   }, [data]);
 
-  return <div ref={containerRef} className="rsi-chart" />;
+  return (
+    <div className="price-chart-wrapper">
+      <div className="price-chart-toolbar">
+        <button type="button" className="price-chart-jump-btn" onClick={jumpToLatest}>
+          Latest
+        </button>
+      </div>
+      <div ref={containerRef} className="rsi-chart" />
+    </div>
+  );
 }

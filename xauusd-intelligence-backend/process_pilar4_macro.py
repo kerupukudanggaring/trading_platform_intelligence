@@ -40,11 +40,11 @@ FF_CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 REQUEST_TIMEOUT = 20
 
 # Sesuai BRD (BR-04): fokus ke berita berdampak tinggi yang paling
-# menggerakkan XAUUSD -- data makro AS (USD) dan High impact saja.
+# menggerakkan XAUUSD -- data makro AS (USD) dan High/Medium impact saja.
 # Boleh ditambah currency lain (misal jika mau tracking DXY basket
 # lebih luas), tapi untuk MVP fokus USD dulu sesuai scope Tahap 4.
 RELEVANT_COUNTRIES = {"USD"}
-RELEVANT_IMPACTS = {"High"}
+RELEVANT_IMPACTS = {"High", "Medium"}
 
 logging.basicConfig(
     level=logging.INFO,

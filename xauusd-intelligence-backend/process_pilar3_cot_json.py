@@ -93,7 +93,7 @@ def fetch_gold_managed_money() -> dict:
     params = {
         "cftc_contract_market_code": GOLD_CFTC_CODE,
         "$order": "report_date_as_yyyy_mm_dd DESC",
-        "$limit": 1,
+        "$limit": 4,
     }
 
     response = requests.get(COT_API_URL, params=params, timeout=REQUEST_TIMEOUT)

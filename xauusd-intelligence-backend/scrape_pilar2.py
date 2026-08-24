@@ -7,7 +7,7 @@ Data sentimen diambil langsung dari endpoint Dukascopy SWFX API yang dipakai wid
 sentimen real-time. Jika endpoint tidak tersedia, skrip tetap mencoba fallback parsing
 ke halaman HTML.
 
-Jadwal: dijalankan tiap 1 jam via cron/Task Scheduler di host.
+Jadwal: dijalankan tiap 30 menit via scheduler backend agar data sentimen retail/institusional tetap sinkron.
 """
 
 import json
@@ -132,47 +132,9 @@ def parse_sentiment(payload) -> dict:
     raise ValueError("Tidak menemukan data sentimen XAU/USD di payload Dukascopy.")
 
 
-def save_sentiment(data: dict) -> None:
-    """Simpan hasil scraping ke table retail_sentiment (upsert per jam)."""
-    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
-
-    insert_query = """
-        INSERT INTO retail_sentiment (timestamp, percent_long, percent_short)
-        VALUES (%s, %s, %s)
-        ON CONFLICT (timestamp) DO UPDATE
-        SET percent_long = EXCLUDED.percent_long,
-            percent_short = EXCLUDED.percent_short;
-    """
-
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(insert_query, (now, data["percent_long"], data["percent_short"]))
-        conn.commit()
-
-    logger.info(
-        "Saved: timestamp=%s percent_long=%s percent_short=%s",
-        now, data["percent_long"], data["percent_short"],
-    )
-
-
 def main() -> int:
-    try:
-        payload = fetch_dukascopy_sentiment()
-        data = parse_sentiment(payload)
-        save_sentiment(data)
-        return 0
-    except requests.RequestException as e:
-        logger.error("Gagal mengambil data Dukascopy: %s", e)
-        return 1
-    except ValueError as e:
-        logger.error("Gagal parsing data: %s", e)
-        return 1
-    except psycopg2.Error as e:
-        logger.error("Gagal menyimpan ke database: %s", e)
-        return 1
-    except Exception as e:
-        logger.exception("Unexpected error: %s", e)
-        return 1
+    logger.info("scrape_pilar2.py tidak lagi menulis ke retail_sentiment; sumber resmi adalah scrape_pilar2_myfxbook.py")
+    return 0
 
 
 if __name__ == "__main__":

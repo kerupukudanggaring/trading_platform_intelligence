@@ -667,6 +667,62 @@ def compute_comm_slope(comm_net_series: List[float], window: int = 5) -> Dict[st
     }
 
 
+def calculate_percentile(current_val: float, historical_vals: List[float]) -> float:
+    """Menghitung persentil (0-100) dari nilai saat ini terhadap nilai historis."""
+    if not historical_vals:
+        return 50.0
+    min_val = min(historical_vals)
+    max_val = max(historical_vals)
+    if max_val == min_val:
+        return 50.0
+    percentile = ((current_val - min_val) / (max_val - min_val)) * 100
+    return clamp(percentile)
+
+def compute_speculator_percentile(spec_net_series: List[float], window: int = 52) -> Dict[str, Any]:
+    recent52 = spec_net_series[-window:] if len(spec_net_series) >= window else spec_net_series
+    current_val = recent52[-1] if recent52 else 0.0
+    pct = calculate_percentile(current_val, recent52)
+    score = clamp(pct)
+    signal, conf = derive_signal_and_confidence(score)
+    if pct >= 80:
+        desc = f"Speculator Net Percentile is at {pct:.1f}% (extreme high / strongly bullish)."
+    elif pct <= 20:
+        desc = f"Speculator Net Percentile is at {pct:.1f}% (extreme low / heavily unwound longs)."
+    else:
+        desc = f"Speculator Net Percentile is neutral at {pct:.1f}%."
+    return {
+        "version": "v2",
+        "feature": "Speculator Net Position Percentile",
+        "value": round(pct, 2),
+        "normalized_score": round(score),
+        "signal": signal,
+        "confidence": conf,
+        "description": desc,
+    }
+
+def compute_commercial_extreme_warning(comm_net_series: List[float], window: int = 52) -> Dict[str, Any]:
+    recent52 = comm_net_series[-window:] if len(comm_net_series) >= window else comm_net_series
+    current_val = recent52[-1] if recent52 else 0.0
+    pct = calculate_percentile(current_val, recent52)
+    score = clamp(pct)
+    signal, conf = derive_signal_and_confidence(score)
+    if pct <= 15:
+        desc = f"WARNING: Commercials are heavily net short at {pct:.1f}% percentile (Extreme Reversal Risk)."
+    elif pct >= 85:
+        desc = f"Commercials are least net short at {pct:.1f}% percentile (Potential Bottom/Bullish)."
+    else:
+        desc = f"Commercial net positioning is within normal non-extreme bounds ({pct:.1f}%)."
+    return {
+        "version": "v2",
+        "feature": "Commercial Extreme Warning",
+        "value": round(pct, 2),
+        "normalized_score": round(score),
+        "signal": signal,
+        "confidence": conf,
+        "description": desc,
+    }
+
+
 def build_features_v2(history_records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Menerima list dictionary data historis COT yang terurut dari yang terdahulu ke terbaru.
@@ -674,11 +730,14 @@ def build_features_v2(history_records: List[Dict[str, Any]]) -> List[Dict[str, A
     """
     if not history_records:
         return []
-
+    sorted_records = sorted(history_records, key=lambda x: x.get("date", ""))
     comm_net_series = [
-        safe_float(r.get("comm_long")) - safe_float(r.get("comm_short")) for r in history_records
+        safe_float(r.get("comm_long")) - safe_float(r.get("comm_short")) for r in sorted_records
     ]
-    oi_series = [safe_float(r.get("open_interest")) for r in history_records]
+    spec_net_series = [
+        safe_float(r.get("non_comm_long")) - safe_float(r.get("non_comm_short")) for r in sorted_records
+    ]
+    oi_series = [safe_float(r.get("open_interest")) for r in sorted_records]
 
     current_comm_net = comm_net_series[-1]
     current_oi = oi_series[-1]
@@ -692,26 +751,29 @@ def build_features_v2(history_records: List[Dict[str, Any]]) -> List[Dict[str, A
     f5_oi_pct = compute_oi_percentile(oi_series)
     f6_c_trend = compute_comm_trend(comm_net_series)
     f7_oi_trend = compute_oi_trend(oi_series)
-    f8_accel = compute_comm_acceleration(comm_net_series)
-    f9_high52 = compute_rolling_highest(comm_net_series)
-    f10_low52 = compute_rolling_lowest(comm_net_series)
-    f11_slope = compute_comm_slope(comm_net_series)
+    f8_c_accel = compute_comm_acceleration(comm_net_series)
+    f9_highest = compute_rolling_highest(comm_net_series)
+    f10_lowest = compute_rolling_lowest(comm_net_series)
+    f11_spec_pct = compute_speculator_percentile(spec_net_series)
+    f12_comm_ext = compute_commercial_extreme_warning(comm_net_series)
 
-    return [
+    features = [
         f1_ma4,
         f2_mom,
         f3_oi_ma12,
         f4_oi_mom,
-        f5_cot_idx,
         f5_pct,
+        f5_cot_idx,
         f5_oi_pct,
         f6_c_trend,
         f7_oi_trend,
-        f8_accel,
-        f9_high52,
-        f10_low52,
-        f11_slope,
+        f8_c_accel,
+        f9_highest,
+        f10_lowest,
+        f11_spec_pct,
+        f12_comm_ext
     ]
+    return features
 
 
 def compute_commercial_zscore(comm_net_series: List[float], window: int = 52) -> Dict[str, Any]:

@@ -6,3 +6,8 @@ apscheduler==3.10.4
 playwright==1.48.0
 beautifulsoup4==4.12.3
 requests==2.32.3
+pandas==3.0.3
+numpy==2.2.6
+pandas-ta==0.4.71b0
+SQLAlchemy==2.0.45
+yfinance==1.5.1

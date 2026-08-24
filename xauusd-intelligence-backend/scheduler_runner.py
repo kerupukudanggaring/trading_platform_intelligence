@@ -45,7 +45,7 @@ def run_ingest_pilar1():
 def run_ingest_gold_futures():
     print(f"\n[{datetime.now()}] === Menjalankan ingest_gold_futures_volume ===")
     try:
-        pass # ingest_gold_futures_volume.main()
+        ingest_gold_futures_volume.main()
     except Exception as e:
         print(f"[ERROR] ingest_gold_futures_volume gagal: {e}")
 
@@ -105,6 +105,13 @@ def main():
         run_ingest_pilar1,
         CronTrigger(minute="*/30", second=0),
         id="ingest_pilar1",
+    )
+
+    # Tiap 30 menit, tarik data volume futures untuk Volume Profile
+    scheduler.add_job(
+        run_ingest_gold_futures,
+        CronTrigger(minute="*/30", second=5),
+        id="ingest_gold_futures",
     )
 
     # Tiap 30 menit, dijalankan di menit ke-2 dan ke-32.

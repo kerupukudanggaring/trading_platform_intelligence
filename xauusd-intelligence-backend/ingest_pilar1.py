@@ -23,10 +23,10 @@ TWELVEDATA_API_KEY = os.getenv("TWELVEDATA_API_KEY")
 # HARUS selalu sinkron -- kalau params["timezone"] diubah, ini juga wajib diubah.
 SOURCE_TIMEZONE = ZoneInfo("Asia/Jakarta")
 
-def fetch_price_data(symbol="XAU/USD", interval="1h", outputsize=5000):
+def fetch_price_data(symbol="XAU/USD", interval="30min", outputsize=5000):
     """
     simbol, pasangan mata uang/komoditas yang ingin diambil datanya (xau/usd)
-    jarak antar candle 1 jam
+    jarak antar candle 30 menit.
     Menarik data harga dari TwelveData API.
     outputsize=5000 artinya ambil 5000 candle terakhir.
     """
@@ -148,7 +148,7 @@ def main():
     """
     print(f"[{datetime.now()}] Mulai ingest data Pilar 1 (Market Price)...")
 
-    price_data = fetch_price_data(symbol="XAU/USD", interval="1h", outputsize=5000)
+    price_data = fetch_price_data(symbol="XAU/USD", interval="30min", outputsize=5000)
     #Panggil fungsi fetch untuk ambil data dari API
 
     if price_data:

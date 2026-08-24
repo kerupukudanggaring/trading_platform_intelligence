@@ -1,0 +1,177 @@
+/* ═══════════════════════════════════════════════════════
+   FootprintPanel.css  –  TradingView Overlay Style
+   ═══════════════════════════════════════════════════════ */
+
+.footprint-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  background: var(--bg-secondary, #0d1117);
+  padding: 1rem;
+  height: 100%;
+}
+
+.fp-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+/* ── TV Chart Wrapper ── */
+.tv-chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tv-chart-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* ── HTML Overlay Container ── */
+.footprint-overlay-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 26px; /* Memberikan ruang persis seukuran X-axis (time scale) */
+  pointer-events: none; /* Chart underneath remains interactive */
+  overflow: hidden;
+  z-index: 10;
+}
+
+/* ── Individual Footprint Level ── */
+.fp-level-row {
+  position: absolute;
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch; /* Stretch children to fill the row height */
+  /* X: center on candle. Y: top-edge (set via inline top + translateX only) */
+  transform: translateX(-50%);
+  pointer-events: none;
+  font-family: 'JetBrains Mono', monospace;
+  overflow: hidden;
+}
+
+.fp-bid-box, .fp-ask-box, .fp-price-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 2px;
+  font-size: 0.65rem; /* overridden inline when row is tiny */
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  /* height now set dynamically inline based on normalized row height */
+  pointer-events: auto; /* Memungkinkan hover trigger (tooltip) */
+}
+
+.fp-bid-box {
+  border-radius: 2px 0 0 2px;
+}
+
+.fp-ask-box {
+  border-radius: 0 2px 2px 0;
+}
+
+.fp-price-box {
+  color: rgba(255,255,255,0.8);
+  font-size: 0.65rem;
+  background-color: rgba(0,0,0,0.5); /* dark background for price */
+}
+
+/* ── Delta/Volume Footer ── */
+.fp-footer-box {
+  position: absolute;
+  transform: translateX(-50%);
+  background: rgba(13, 17, 23, 0.85);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  pointer-events: none;
+  z-index: 5;
+  min-width: 60px;
+}
+
+.fp-footer-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.fp-footer-lbl {
+  color: rgba(255,255,255,0.5);
+}
+
+.fp-footer-val.pos { color: #10b981; }
+.fp-footer-val.neg { color: #ef4444; }
+.fp-footer-val.neu { color: #3b82f6; }
+
+/* ── Other UI ── */
+.limit-dropdown {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.85);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.limit-dropdown option {
+  background-color: #1e1e1e; /* Dark background to contrast white text */
+  color: rgba(255,255,255,0.9);
+}
+
+.limit-dropdown:hover {
+  border-color: rgba(255,255,255,0.35);
+}
+
+.loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.9rem;
+}
+
+.legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.6);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.box {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.box.red { background-color: rgba(239, 68, 68, 0.7); }
+.box.green { background-color: rgba(34, 197, 94, 0.7); }

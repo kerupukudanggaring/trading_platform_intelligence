@@ -56,6 +56,20 @@
   font-weight: 600;
   color: #ecf0f1;
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-weight {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--gold, #D4AF37);
+  background: rgba(212, 175, 55, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .item-description {
