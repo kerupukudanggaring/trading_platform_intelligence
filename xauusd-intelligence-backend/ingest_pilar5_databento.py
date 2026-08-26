@@ -398,14 +398,18 @@ def process_date(target_date: str):
             )
         except Exception as e:
             error_msg = str(e)
-            if "dataset_unavailable_range" in error_msg and attempt == 1:
-                # Extract suggested end time using regex
-                # Error format: "Try again with an end time before 2026-08-20T22:06:01.852023000Z."
+            if "dataset_unavailable_range" in error_msg and attempt <= 2:
                 match = re.search(r"end time before ([0-9T:\.-]+Z)", error_msg)
                 if match:
                     suggested_end = match.group(1)
                     logger.warning(f"Databento 422 error. Retrying with suggested end_time: {suggested_end}")
-                    return fetch_with_retry(start_str, suggested_end, attempt=2)
+                    return fetch_with_retry(start_str, suggested_end, attempt=attempt+1)
+            elif "data_end_after_available_end" in error_msg and attempt <= 2:
+                match = re.search(r"data available up to '([^']+)'", error_msg)
+                if match:
+                    suggested_end = match.group(1).replace(" ", "T")
+                    logger.warning(f"Databento 422 error (data_end_after_available_end). Retrying with available end_time: {suggested_end}")
+                    return fetch_with_retry(start_str, suggested_end, attempt=attempt+1)
             raise e
 
     try:
