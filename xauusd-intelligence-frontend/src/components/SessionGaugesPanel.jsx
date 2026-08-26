@@ -106,7 +106,7 @@ function MiniGauge({ score, title, description }) {
   );
 }
 
-function SessionGaugesPanel({ coreScore }) {
+function SessionGaugesPanel({ coreScore, isTvMode }) {
   const [timeVal, setTimeVal] = useState(0);
 
   useEffect(() => {
