@@ -164,20 +164,23 @@ function App() {
       </div>
 
       {activeView === 'tv' ? (
-        <div className="tv-view" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '15px', gap: '15px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', gap: '15px', flex: 1, minHeight: 0 }}>
-             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#0d1117', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                 <div style={{ padding: '10px 15px', borderBottom: '1px solid rgba(255,255,255,0.1)', fontWeight: 'bold' }}>Price & Volume Profile (Pilar 1 & 5)</div>
-                 <div style={{ flex: 1, position: 'relative' }}>
-                    <PriceChart data={data} chartApiRef={priceChartApiRef} volumeProfile={volumeProfile} height="100%" />
-                 </div>
-             </div>
-             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                 <FootprintPanel footprintData={footprintData} trueDailyPoc={footprintDailyPoc} height="100%" />
+        <div className="tv-view" style={{ display: 'flex', flexDirection: 'row', flex: 1, padding: '0 15px 15px', gap: '15px', overflow: 'hidden' }}>
+          {/* Column 1: Pilar 1 */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#0d1117', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+             <div style={{ padding: '10px 15px', borderBottom: '1px solid rgba(255,255,255,0.1)', fontWeight: 'bold' }}>Price & Volume Profile (Pilar 1 & 5)</div>
+             <div style={{ flex: 1, position: 'relative' }}>
+                <PriceChart data={data} chartApiRef={priceChartApiRef} volumeProfile={volumeProfile} height="100%" />
              </div>
           </div>
-          <div style={{ flexShrink: 0 }}>
-              <SessionGaugesPanel coreScore={coreScore} />
+          
+          {/* Column 2: Session Gauges */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+              <SessionGaugesPanel coreScore={coreScore} isTvMode={true} />
+          </div>
+
+          {/* Column 3: Footprint */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+             <FootprintPanel footprintData={footprintData} trueDailyPoc={footprintDailyPoc} height="100%" />
           </div>
         </div>
       ) : (

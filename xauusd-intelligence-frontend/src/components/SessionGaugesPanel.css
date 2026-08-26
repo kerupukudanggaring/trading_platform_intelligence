@@ -92,3 +92,19 @@
   letter-spacing: 0.5px;
   margin-top: 0.2rem;
 }
+
+/* ── TV Mode Styles ── */
+.session-gauges-wrapper.tv-mode {
+  margin-top: 0;
+  height: 100%;
+  justify-content: center;
+}
+
+.session-gauges-wrapper.tv-mode .gauges-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.session-gauges-wrapper.tv-mode .session-gauges-panel {
+  padding: 1rem;
+}

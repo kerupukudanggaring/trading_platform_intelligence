@@ -149,39 +149,45 @@ function SessionGaugesPanel({ coreScore }) {
   const isUsActive = timeVal >= 20 || timeVal < 3.5;
 
   return (
-    <div className="session-gauges-wrapper">
+    <div className={`session-gauges-wrapper ${isTvMode ? 'tv-mode' : ''}`}>
       {/* ASIAN SESSION */}
-      <div className="session-gauges-panel" style={{ opacity: isAsiaActive ? 1 : 0.6 }}>
-        <h2>Asian Session (05.00 - 14.00) Combinations {isAsiaActive ? "(ACTIVE)" : ""}</h2>
-        <div className="gauges-grid">
-          <MiniGauge score={isAsiaActive ? g1Score : 0} title="Gauge 1" description="Retail (25%) + Inst. (42%) + Macro (33%)" />
-          <MiniGauge score={isAsiaActive ? g2Score : 0} title="Gauge 2" description="Retail (37.5%) + Inst. (62.5%)" />
-          <MiniGauge score={isAsiaActive ? g3Score : 0} title="Gauge 3" description="Retail (30%) + Macro (70%)" />
-          <MiniGauge score={isAsiaActive ? g4Score : 0} title="Gauge 4" description="Inst. (56%) + Macro (44%)" />
+      {(!isTvMode || isAsiaActive) && (
+        <div className="session-gauges-panel" style={{ opacity: isAsiaActive ? 1 : 0.6 }}>
+          <h2>Asian Session (05.00 - 14.00) Combinations {isAsiaActive ? "(ACTIVE)" : ""}</h2>
+          <div className="gauges-grid">
+            <MiniGauge score={isAsiaActive ? g1Score : 0} title="Gauge 1" description="Retail (25%) + Inst. (42%) + Macro (33%)" />
+            <MiniGauge score={isAsiaActive ? g2Score : 0} title="Gauge 2" description="Retail (37.5%) + Inst. (62.5%)" />
+            <MiniGauge score={isAsiaActive ? g3Score : 0} title="Gauge 3" description="Retail (30%) + Macro (70%)" />
+            <MiniGauge score={isAsiaActive ? g4Score : 0} title="Gauge 4" description="Inst. (56%) + Macro (44%)" />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* EUROPE SESSION */}
-      <div className="session-gauges-panel" style={{ opacity: isEuropeActive ? 1 : 0.6 }}>
-        <h2>Europe Session (14.00 - 20.00) Combinations {isEuropeActive ? "(ACTIVE)" : ""}</h2>
-        <div className="gauges-grid">
-          <MiniGauge score={isEuropeActive ? g1Score : 0} title="Gauge 1" description="Retail (25%) + Inst. (42%) + Macro (33%)" />
-          <MiniGauge score={isEuropeActive ? g2Score : 0} title="Gauge 2" description="Retail (37.5%) + Inst. (62.5%)" />
-          <MiniGauge score={isEuropeActive ? g3Score : 0} title="Gauge 3" description="Retail (30%) + Macro (70%)" />
-          <MiniGauge score={isEuropeActive ? g4Score : 0} title="Gauge 4" description="Inst. (56%) + Macro (44%)" />
+      {(!isTvMode || isEuropeActive) && (
+        <div className="session-gauges-panel" style={{ opacity: isEuropeActive ? 1 : 0.6 }}>
+          <h2>Europe Session (14.00 - 20.00) Combinations {isEuropeActive ? "(ACTIVE)" : ""}</h2>
+          <div className="gauges-grid">
+            <MiniGauge score={isEuropeActive ? g1Score : 0} title="Gauge 1" description="Retail (25%) + Inst. (42%) + Macro (33%)" />
+            <MiniGauge score={isEuropeActive ? g2Score : 0} title="Gauge 2" description="Retail (37.5%) + Inst. (62.5%)" />
+            <MiniGauge score={isEuropeActive ? g3Score : 0} title="Gauge 3" description="Retail (30%) + Macro (70%)" />
+            <MiniGauge score={isEuropeActive ? g4Score : 0} title="Gauge 4" description="Inst. (56%) + Macro (44%)" />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* US SESSION */}
-      <div className="session-gauges-panel" style={{ opacity: isUsActive ? 1 : 0.6 }}>
-        <h2>US Session (20.00 - 03.30) Combinations {isUsActive ? "(ACTIVE)" : ""}</h2>
-        <div className="gauges-grid">
-          <MiniGauge score={isUsActive ? g1Score : 0} title="Gauge 1" description="Retail (25%) + Inst. (42%) + Macro (33%)" />
-          <MiniGauge score={isUsActive ? g2Score : 0} title="Gauge 2" description="Retail (37.5%) + Inst. (62.5%)" />
-          <MiniGauge score={isUsActive ? g3Score : 0} title="Gauge 3" description="Retail (30%) + Macro (70%)" />
-          <MiniGauge score={isUsActive ? g4Score : 0} title="Gauge 4" description="Inst. (56%) + Macro (44%)" />
+      {(!isTvMode || isUsActive) && (
+        <div className="session-gauges-panel" style={{ opacity: isUsActive ? 1 : 0.6 }}>
+          <h2>US Session (20.00 - 03.30) Combinations {isUsActive ? "(ACTIVE)" : ""}</h2>
+          <div className="gauges-grid">
+            <MiniGauge score={isUsActive ? g1Score : 0} title="Gauge 1" description="Retail (25%) + Inst. (42%) + Macro (33%)" />
+            <MiniGauge score={isUsActive ? g2Score : 0} title="Gauge 2" description="Retail (37.5%) + Inst. (62.5%)" />
+            <MiniGauge score={isUsActive ? g3Score : 0} title="Gauge 3" description="Retail (30%) + Macro (70%)" />
+            <MiniGauge score={isUsActive ? g4Score : 0} title="Gauge 4" description="Inst. (56%) + Macro (44%)" />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
