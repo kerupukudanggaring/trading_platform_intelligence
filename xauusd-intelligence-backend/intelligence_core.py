@@ -386,6 +386,7 @@ def run_scoring_engine(timestamp: Optional[datetime] = None) -> Dict[str, Any]:
         "retail_percent_long": state.get("retail_percent_long"),
         "institutional_net_position": state.get("institutional_net_position"),
         "institutional_previous_net_position": state.get("institutional_previous_net_position"),
+        "institutional_strength": state.get("institutional_strength"),
         "weights": {
             "W1": WEIGHT_P1_TECHNICAL,
             "W2": WEIGHT_P2_RETAIL,
