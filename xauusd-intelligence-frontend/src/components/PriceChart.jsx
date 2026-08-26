@@ -8,7 +8,7 @@ import { renderVolumeProfileOverlay } from "./volumeProfileUtils";
  * Merender candlestick XAUUSD + overlay MA50, MA200, dan Bollinger Bands.
  * Menggunakan volumeProfileUtils.js untuk rendering Fixed Range Volume Profile (FRVP).
  */
-export default function PriceChart({ data, onVisibleRangeChange, chartApiRef, volumeProfile }) {
+export default function PriceChart({ data, onVisibleRangeChange, chartApiRef, volumeProfile, height = 480 }) {
   const MAX_POINTS = 10000;
   const containerRef = useRef(null);
   const chartRef = useRef(null);
@@ -85,6 +85,9 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef, vo
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const rect = containerRef.current.getBoundingClientRect();
+    const chartHeight = rect.height > 0 ? rect.height : (typeof height === 'number' ? height : 480);
+
     const chart = createChart(containerRef.current, {
       layout: {
         background: { color: "transparent" },
@@ -113,7 +116,7 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef, vo
         minBarSpacing: 4,
       },
       width: containerRef.current.clientWidth,
-      height: 480,
+      height: chartHeight,
       ...withIndexTimeFormatting(timeMapRef),
     });
 
@@ -194,12 +197,16 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef, vo
 
     const handleResize = () => {
       if (containerRef.current) {
-        chart.applyOptions({ width: containerRef.current.clientWidth });
+        chart.applyOptions({ 
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight
+        });
         drawFRVP();
       }
     };
 
     window.addEventListener("resize", handleResize);
+    setTimeout(handleResize, 100);
 
     return () => {
       window.removeEventListener("resize", handleResize);
@@ -330,14 +337,16 @@ export default function PriceChart({ data, onVisibleRangeChange, chartApiRef, vo
     }
   }, [chartApiRef]);
 
+  const wrapperStyle = typeof height === 'number' ? { position: "relative", width: "100%", height: `${height}px` } : { position: "relative", width: "100%", height: height };
+
   return (
-    <div className="price-chart-wrapper">
+    <div className="price-chart-wrapper" style={typeof height === 'string' ? { height: '100%', display: 'flex', flexDirection: 'column' } : {}}>
       <div className="price-chart-toolbar">
         <button type="button" className="price-chart-jump-btn" onClick={jumpToLatest}>
           Latest
         </button>
       </div>
-      <div style={{ position: "relative", width: "100%", height: "480px" }}>
+      <div style={wrapperStyle}>
         <div ref={containerRef} className="price-chart" style={{ width: "100%", height: "100%" }} />
         <canvas
           ref={frvpCanvasRef}

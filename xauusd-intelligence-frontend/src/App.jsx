@@ -34,6 +34,8 @@ function App() {
   const [lastFetchTime, setLastFetchTime] = useState(null);
   const priceChartApiRef = useRef(null);
 
+  const [activeView, setActiveView] = useState("standard");
+
   const loadData = async () => {
     setFetchStatus("loading");
     try {
@@ -88,7 +90,6 @@ function App() {
 
   const loadFootprint = async () => {
     try {
-      // 5000 candles at 30m interval covers over 100 days, more than enough to reach July 13th
       const result = await fetchFootprintData(5000);
       setFootprintData(result);
     } catch (err) {
@@ -99,7 +100,6 @@ function App() {
   const loadFootprintDailyPoc = async () => {
     try {
       const result = await fetchDatabentoDailyPoc();
-      // result is { "2026-08-19": 4504.6, ... }
       const pocMap = new Map(Object.entries(result));
       setFootprintDailyPoc(pocMap);
     } catch (err) {
@@ -126,9 +126,6 @@ function App() {
     loadFootprint();
     loadFootprintDailyPoc();
 
-    // Auto-refresh tiap 30 menit, supaya data harga, RSI, sentimen, dan
-    // kalender ekonomi selalu mengambil snapshot terbaru dari backend pada
-    // interval yang sama dengan scheduler backend.
     const interval = setInterval(refreshAll, 30 * 60 * 1000);
 
     const handleVisibilityChange = () => {
@@ -148,37 +145,71 @@ function App() {
   }, []);
 
   return (
-    <div className="dashboard">
-      <StatusHeader data={data} lastFetchStatus={fetchStatus} lastFetchTime={lastFetchTime} />
-      <PriceChart data={data} chartApiRef={priceChartApiRef} volumeProfile={volumeProfile} />
-      <RsiChart data={data} priceChartApiRef={priceChartApiRef} />
-      <FootprintPanel footprintData={footprintData} trueDailyPoc={footprintDailyPoc} />
+    <div className="dashboard" style={activeView === 'tv' ? { height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' } : {}}>
+      
+      {/* Top Navbar */}
+      <div className="navbar" style={{
+        display: 'flex', gap: '15px', padding: '15px 20px', backgroundColor: '#0d1117',
+        borderBottom: '1px solid rgba(255,255,255,0.1)', alignItems: 'center', flexShrink: 0
+      }}>
+        <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#fff', marginRight: '20px' }}>XAUUSD Intelligence</h2>
+        <button 
+          onClick={() => setActiveView('standard')}
+          style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', backgroundColor: activeView === 'standard' ? '#2563eb' : '#1f2937', color: '#fff', transition: 'all 0.2s' }}
+        >Standard View</button>
+        <button 
+          onClick={() => setActiveView('tv')}
+          style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', backgroundColor: activeView === 'tv' ? '#10b981' : '#1f2937', color: '#fff', transition: 'all 0.2s' }}
+        >Monitoring (TV 60")</button>
+      </div>
 
-      {/* Kuadran 2: Score Breakdown */}
-      <div className="intelligence-section">
-        <div className="breakdown-signal-container">
-          <ScoreBreakdown
-            technicalScore={coreScore?.technical_score ?? 0}
-            retailScore={coreScore?.retail_score ?? 0}
-            institutionalScore={coreScore?.institutional_score ?? 0}
-            macroScore={coreScore?.macro_score ?? 0}
-            pilar5Score={coreScore?.pilar5_score ?? 0}
-            totalScore={coreScore?.score ?? 0}
-          />
+      {activeView === 'tv' ? (
+        <div className="tv-view" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '15px', gap: '15px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', gap: '15px', flex: 1, minHeight: 0 }}>
+             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#0d1117', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                 <div style={{ padding: '10px 15px', borderBottom: '1px solid rgba(255,255,255,0.1)', fontWeight: 'bold' }}>Price & Volume Profile (Pilar 1 & 5)</div>
+                 <div style={{ flex: 1, position: 'relative' }}>
+                    <PriceChart data={data} chartApiRef={priceChartApiRef} volumeProfile={volumeProfile} height="100%" />
+                 </div>
+             </div>
+             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                 <FootprintPanel footprintData={footprintData} trueDailyPoc={footprintDailyPoc} height="100%" />
+             </div>
+          </div>
+          <div style={{ flexShrink: 0 }}>
+              <SessionGaugesPanel coreScore={coreScore} />
+          </div>
         </div>
-      </div>
-
-      <SessionGaugesPanel coreScore={coreScore} />
-
-      <div className="sentiment-panel">
-        <RetailSentimentChart retailData={retailData} technicalData={data} priceChartApiRef={priceChartApiRef} />
-        <InstitutionalSentimentChart
-          institutionalData={institutionalData}
-          technicalData={data}
-          priceChartApiRef={priceChartApiRef}
-        />
-      </div>
-      <EconomicCalendarPanel calendarData={calendarData} />
+      ) : (
+        <div style={{ padding: '0' }}>
+          <StatusHeader data={data} lastFetchStatus={fetchStatus} lastFetchTime={lastFetchTime} />
+          <PriceChart data={data} chartApiRef={priceChartApiRef} volumeProfile={volumeProfile} />
+          <RsiChart data={data} priceChartApiRef={priceChartApiRef} />
+          <FootprintPanel footprintData={footprintData} trueDailyPoc={footprintDailyPoc} />
+          <div className="intelligence-section">
+            <div className="breakdown-signal-container">
+              <ScoreBreakdown
+                technicalScore={coreScore?.technical_score ?? 0}
+                retailScore={coreScore?.retail_score ?? 0}
+                institutionalScore={coreScore?.institutional_score ?? 0}
+                macroScore={coreScore?.macro_score ?? 0}
+                pilar5Score={coreScore?.pilar5_score ?? 0}
+                totalScore={coreScore?.score ?? 0}
+              />
+            </div>
+          </div>
+          <SessionGaugesPanel coreScore={coreScore} />
+          <div className="sentiment-panel">
+            <RetailSentimentChart retailData={retailData} technicalData={data} priceChartApiRef={priceChartApiRef} />
+            <InstitutionalSentimentChart
+              institutionalData={institutionalData}
+              technicalData={data}
+              priceChartApiRef={priceChartApiRef}
+            />
+          </div>
+          <EconomicCalendarPanel calendarData={calendarData} />
+        </div>
+      )}
     </div>
   );
 }

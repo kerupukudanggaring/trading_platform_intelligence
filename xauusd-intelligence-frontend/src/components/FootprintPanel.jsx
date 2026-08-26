@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { createChart } from "lightweight-charts";
 import "./FootprintPanel.css";
 
-const FootprintPanel = ({ footprintData, trueDailyPoc }) => {
+const FootprintPanel = ({ footprintData, trueDailyPoc, height }) => {
   const chartContainerRef = useRef(null);
   const canvasRef = useRef(null);
   const statsCanvasRef = useRef(null);
@@ -514,7 +514,7 @@ const FootprintPanel = ({ footprintData, trueDailyPoc }) => {
 
   if (!footprintData || footprintData.length === 0) {
     return (
-      <div className="panel footprint-panel">
+      <div className="panel footprint-panel" style={height ? { height: typeof height === 'number' ? `${height}px` : height } : {}}>
         <div className="fp-panel-header">
           <h2 style={{ margin: 0 }}>Order Flow Footprint (30m)</h2>
         </div>
@@ -523,8 +523,10 @@ const FootprintPanel = ({ footprintData, trueDailyPoc }) => {
     );
   }
 
+  const wrapperStyle = height ? { height: typeof height === 'number' ? `${height}px` : height, flex: height === '100%' ? 1 : 'none', display: 'flex', flexDirection: 'column' } : {};
+
   return (
-    <div className="panel footprint-panel">
+    <div className="panel footprint-panel" style={wrapperStyle}>
       <div className="fp-panel-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <h2 style={{ margin: 0 }}>Order Flow Footprint (30m)</h2>
@@ -542,7 +544,7 @@ const FootprintPanel = ({ footprintData, trueDailyPoc }) => {
         </div>
       </div>
 
-      <div className="tv-chart-wrapper" style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: 'none', position: 'relative' }}>
+      <div className="tv-chart-wrapper" style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: 'none', position: 'relative', height: height === '100%' ? 'auto' : '600px', flex: height === '100%' ? 1 : 'none' }}>
         <div ref={chartContainerRef} className="tv-chart-container" />
         <canvas 
           ref={canvasRef} 
