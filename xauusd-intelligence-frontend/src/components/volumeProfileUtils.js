@@ -245,53 +245,7 @@ export function renderVolumeProfileOverlay({
           ctx.fillText(`POC: ${pocPrice.toFixed(1)}`, dayLeftX + 4, pocY - 3);
         }
 
-        // 4. HVN & LVN — dihitung dinamis dari volume profile (tanpa library eksternal)
-        const { hvn, lvn } = computeHvnLvn(dayProfile);
-
-        // --- HVN: High Volume Node — Cyan solid dengan glow ---
-        // Makna: Level harga dengan transaksi sangat padat → support/resistance kuat
-        for (const hvnPrice of hvn) {
-          if (Math.abs(hvnPrice - pocPrice) < 2) continue; // skip jika terlalu dekat POC
-
-          const hvnY = candleSeries.priceToCoordinate(hvnPrice);
-          if (hvnY === null || hvnY === undefined || hvnY < 0 || hvnY > rect.height) continue;
-
-          ctx.save();
-          ctx.shadowColor = "rgba(0, 229, 255, 0.5)";
-          ctx.shadowBlur = 4;
-          ctx.strokeStyle = "rgba(0, 229, 255, 0.80)";
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([]);
-          ctx.beginPath();
-          ctx.moveTo(dayLeftX, hvnY);
-          ctx.lineTo(dayRightX, hvnY);
-          ctx.stroke();
-          ctx.restore();
-
-          ctx.fillStyle = "rgba(0, 229, 255, 0.90)";
-          ctx.font = "bold 9px 'JetBrains Mono', monospace";
-          ctx.fillText(`HVN ${hvnPrice.toFixed(1)}`, dayLeftX + 4, hvnY - 3);
-        }
-
-        // --- LVN: Low Volume Node — Oranye dashed tipis ---
-        // Makna: Area volume rendah → harga melewatinya cepat (low friction zone)
-        for (const lvnPrice of lvn) {
-          const lvnY = candleSeries.priceToCoordinate(lvnPrice);
-          if (lvnY === null || lvnY === undefined || lvnY < 0 || lvnY > rect.height) continue;
-
-          ctx.strokeStyle = "rgba(255, 167, 38, 0.65)";
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(dayLeftX, lvnY);
-          ctx.lineTo(dayRightX, lvnY);
-          ctx.stroke();
-          ctx.setLineDash([]);
-
-          ctx.fillStyle = "rgba(255, 167, 38, 0.70)";
-          ctx.font = "9px 'JetBrains Mono', monospace";
-          ctx.fillText(`LVN ${lvnPrice.toFixed(1)}`, dayLeftX + 4, lvnY - 3);
-        }
+        // 4. HVN & LVN — dihapus, hanya POC yang dipertahankan
       }
     }
   }
