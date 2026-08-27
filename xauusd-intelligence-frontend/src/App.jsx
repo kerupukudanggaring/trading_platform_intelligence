@@ -173,15 +173,16 @@ function App() {
              </div>
           </div>
           
-          {/* Column 2: Session Gauges */}
+          {/* Column 2: Footprint */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+             <FootprintPanel footprintData={footprintData} trueDailyPoc={footprintDailyPoc} height="100%" />
+          </div>
+
+          {/* Column 3: Session Gauges */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
               <SessionGaugesPanel coreScore={coreScore} isTvMode={true} />
           </div>
 
-          {/* Column 3: Footprint */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-             <FootprintPanel footprintData={footprintData} trueDailyPoc={footprintDailyPoc} height="100%" />
-          </div>
         </div>
       ) : (
         <div style={{ padding: '0' }}>
