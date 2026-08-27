@@ -39,22 +39,22 @@ export default function StatusHeader({ data, lastFetchStatus, lastFetchTime }) {
     lastFetchStatus === "offline" || isStale()
       ? "#EF5350"
       : lastFetchStatus === "loading"
-      ? "#D4AF37"
-      : "#3DDC97";
+        ? "#D4AF37"
+        : "#3DDC97";
 
   const statusLabel =
     lastFetchStatus === "offline"
       ? "Offline"
       : isStale()
-      ? "offline"
-      : lastFetchStatus === "loading"
-      ? "Memuat..."
-      : "Online";
+        ? "offline"
+        : lastFetchStatus === "loading"
+          ? "Memuat..."
+          : "Online";
 
   return (
     <div className="status-header">
       <div className="status-header__pair">
-        <span className="status-header__pair-name">XAUUSD Price</span>
+        <span className="status-header__pair-name">XAUUSD Pricechart</span>
         <span className="status-header__pair-sub">TRADING INTELLIGENCE PLATFORM</span>
       </div>
 

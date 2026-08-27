@@ -152,7 +152,7 @@ function App() {
         display: 'flex', gap: '15px', padding: '15px 20px', backgroundColor: '#0d1117',
         borderBottom: '1px solid rgba(255,255,255,0.1)', alignItems: 'center', flexShrink: 0
       }}>
-        <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#fff', marginRight: '20px' }}>XAUUSD Intelligence</h2>
+        <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#fff', marginRight: '20px' }}>Trading Platform Intelligence</h2>
         <button 
           onClick={() => setActiveView('standard')}
           style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', backgroundColor: activeView === 'standard' ? '#2563eb' : '#1f2937', color: '#fff', transition: 'all 0.2s' }}
