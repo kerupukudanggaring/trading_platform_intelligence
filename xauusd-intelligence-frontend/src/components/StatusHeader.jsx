@@ -54,7 +54,7 @@ export default function StatusHeader({ data, lastFetchStatus, lastFetchTime }) {
   return (
     <div className="status-header">
       <div className="status-header__pair">
-        <span className="status-header__pair-name">GC1! PRICECHART</span>
+        <span className="status-header__pair-name">XAUUSD Price</span>
         <span className="status-header__pair-sub">TRADING INTELLIGENCE PLATFORM</span>
       </div>
 
