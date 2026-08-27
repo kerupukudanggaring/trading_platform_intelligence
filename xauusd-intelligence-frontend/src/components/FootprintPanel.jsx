@@ -516,7 +516,7 @@ const FootprintPanel = ({ footprintData, trueDailyPoc, height }) => {
     return (
       <div className="panel footprint-panel" style={height ? { height: typeof height === 'number' ? `${height}px` : height } : {}}>
         <div className="fp-panel-header">
-          <h2 style={{ margin: 0 }}>Order Flow Footprint (30m)</h2>
+          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Footprint Chart</h2>
         </div>
         <div className="loading-overlay">No footprint data available</div>
       </div>
@@ -529,7 +529,7 @@ const FootprintPanel = ({ footprintData, trueDailyPoc, height }) => {
     <div className="panel footprint-panel" style={wrapperStyle}>
       <div className="fp-panel-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h2 style={{ margin: 0 }}>Order Flow Footprint (30m)</h2>
+          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Footprint Chart</h2>
           <button 
             className="panel-btn" 
             onClick={() => setShowDailyPoc(!showDailyPoc)}

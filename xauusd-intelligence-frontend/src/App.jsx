@@ -167,7 +167,7 @@ function App() {
         <div className="tv-view" style={{ display: 'flex', flexDirection: 'row', flex: 1, padding: '0 15px 15px', gap: '15px', overflow: 'hidden' }}>
           {/* Column 1: Pilar 1 */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#0d1117', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-             <div style={{ padding: '10px 15px', borderBottom: '1px solid rgba(255,255,255,0.1)', fontWeight: 'bold' }}>Price & Volume Profile (Pilar 1 & 5)</div>
+             <div style={{ padding: '10px 15px', borderBottom: '1px solid rgba(255,255,255,0.1)', fontWeight: 'bold' }}>XAUUSD Pricechart</div>
              <div style={{ flex: 1, position: 'relative' }}>
                 <PriceChart data={data} chartApiRef={priceChartApiRef} volumeProfile={volumeProfile} height="100%" />
              </div>

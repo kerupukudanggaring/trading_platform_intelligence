@@ -153,7 +153,7 @@ function SessionGaugesPanel({ coreScore, isTvMode }) {
       {/* ASIAN SESSION */}
       {(!isTvMode || isAsiaActive) && (
         <div className="session-gauges-panel" style={{ opacity: isAsiaActive ? 1 : 0.6 }}>
-          <h2>Asian Session (05.00 - 14.00) Combinations {isAsiaActive ? "(ACTIVE)" : ""}</h2>
+          <h2 style={{ fontSize: '1rem' }}>Asian Session (05.00 - 14.00) {isAsiaActive ? "(ACTIVE)" : ""}</h2>
           <div className="gauges-grid">
             <MiniGauge score={isAsiaActive ? g1Score : 0} title="Gauge 1" description="Retail (25%) + Inst. (42%) + Macro (33%)" />
             <MiniGauge score={isAsiaActive ? g2Score : 0} title="Gauge 2" description="Retail (37.5%) + Inst. (62.5%)" />
@@ -166,7 +166,7 @@ function SessionGaugesPanel({ coreScore, isTvMode }) {
       {/* EUROPE SESSION */}
       {(!isTvMode || isEuropeActive) && (
         <div className="session-gauges-panel" style={{ opacity: isEuropeActive ? 1 : 0.6 }}>
-          <h2>Europe Session (14.00 - 20.00) Combinations {isEuropeActive ? "(ACTIVE)" : ""}</h2>
+          <h2 style={{ fontSize: '1rem' }}>Europe Session (14.00 - 20.00) {isEuropeActive ? "(ACTIVE)" : ""}</h2>
           <div className="gauges-grid">
             <MiniGauge score={isEuropeActive ? g1Score : 0} title="Gauge 1" description="Retail (25%) + Inst. (42%) + Macro (33%)" />
             <MiniGauge score={isEuropeActive ? g2Score : 0} title="Gauge 2" description="Retail (37.5%) + Inst. (62.5%)" />
@@ -179,7 +179,7 @@ function SessionGaugesPanel({ coreScore, isTvMode }) {
       {/* US SESSION */}
       {(!isTvMode || isUsActive) && (
         <div className="session-gauges-panel" style={{ opacity: isUsActive ? 1 : 0.6 }}>
-          <h2>US Session (20.00 - 03.30) Combinations {isUsActive ? "(ACTIVE)" : ""}</h2>
+          <h2 style={{ fontSize: '1rem' }}>US Session (20.00 - 03.30) {isUsActive ? "(ACTIVE)" : ""}</h2>
           <div className="gauges-grid">
             <MiniGauge score={isUsActive ? g1Score : 0} title="Gauge 1" description="Retail (25%) + Inst. (42%) + Macro (33%)" />
             <MiniGauge score={isUsActive ? g2Score : 0} title="Gauge 2" description="Retail (37.5%) + Inst. (62.5%)" />
