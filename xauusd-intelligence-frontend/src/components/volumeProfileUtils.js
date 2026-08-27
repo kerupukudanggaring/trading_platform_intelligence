@@ -7,7 +7,9 @@
  *  2. Bar Volume Horizontal 2 Warna:
  *     - Cyan (#00e5ff) untuk Bullish/Up Volume
  *     - Pink (#ff4081) untuk Bearish/Down Volume
- *  3. Garis Horizontal POC (Point of Control) Hitam Tebal (#000000)
+ *  3. Garis Horizontal POC (Point of Control) Putih Tebal
+ *  4. Garis HVN (High Volume Node) — Cyan solid, glow effect
+ *  5. Garis LVN (Low Volume Node) — Oranye dashed tipis
  */
 
 /**
@@ -40,6 +42,98 @@ export function groupCandlesByWibDate(visibleData, fromIdx, toIdx) {
 
   return dayGroups;
 }
+
+/**
+ * Hitung HVN (High Volume Node) dan LVN (Low Volume Node) dari profil volume harian.
+ *
+ * Algoritma:
+ *  HVN: bucket dengan volume ≥ hvnThreshold (70%) dari max
+ *       → Di-cluster (bucket berdekatan di-merge jadi 1 garis)
+ *
+ *  LVN: bucket dengan volume ≤ lvnThreshold (15%) dari max
+ *       → Sama, di-cluster juga supaya tidak muncul puluhan garis
+ *       → Buang LVN di ujung extrem range harian (10% teratas & terbawah)
+ *         karena di sana memang volume selalu tipis — bukan sinyal bermakna
+ *       → Batasi maksimal MAX_LVN zona yang ditampilkan (pilih yang paling
+ *         jauh dari POC / paling "signifikan" sebagai low-friction zone)
+ *
+ * @param {object} dayProfile   - { profile: [{price, total_volume, ...}], poc_price }
+ * @param {number} hvnThreshold - Min ratio volume untuk HVN (default 0.70)
+ * @param {number} lvnThreshold - Max ratio volume untuk LVN (default 0.15)
+ * @param {number} clusterGap   - Selisih harga maks untuk merge (default 5.0)
+ * @param {number} maxLvn       - Maks jumlah zona LVN yang ditampilkan (default 3)
+ * @returns {{ hvn: number[], lvn: number[] }}
+ */
+export function computeHvnLvn(
+  dayProfile,
+  hvnThreshold = 0.70,
+  lvnThreshold = 0.15,
+  clusterGap = 5.0,
+  maxLvn = 3
+) {
+  if (!dayProfile?.profile?.length) return { hvn: [], lvn: [] };
+
+  const buckets = dayProfile.profile;
+  const maxVol = Math.max(...buckets.map((b) => b.total_volume || b.volume || 0));
+  if (maxVol <= 0) return { hvn: [], lvn: [] };
+
+  // Hitung batas range harian (buang 10% extrem atas & bawah)
+  const prices = buckets.map((b) => b.price).sort((a, b) => a - b);
+  const edgeLow  = prices[Math.floor(prices.length * 0.10)];  // 10th percentile
+  const edgeHigh = prices[Math.floor(prices.length * 0.90)];  // 90th percentile
+
+  const hvnBuckets = [];
+  const lvnBuckets = [];
+
+  for (const bin of buckets) {
+    const vol = bin.total_volume || bin.volume || 0;
+    const ratio = vol / maxVol;
+
+    if (ratio >= hvnThreshold) {
+      hvnBuckets.push(bin.price);
+    } else if (ratio <= lvnThreshold && ratio > 0) {
+      // Buang LVN di ujung extrem (di sana volume memang selalu tipis)
+      if (bin.price >= edgeLow && bin.price <= edgeHigh) {
+        lvnBuckets.push(bin.price);
+      }
+    }
+  }
+
+  // --- Helper: cluster array harga → ambil harga tengah tiap cluster ---
+  function clusterPrices(priceArr) {
+    if (priceArr.length === 0) return [];
+    priceArr.sort((a, b) => a - b);
+    const clusters = [];
+    let group = [priceArr[0]];
+    for (let i = 1; i < priceArr.length; i++) {
+      if (priceArr[i] - group[group.length - 1] <= clusterGap) {
+        group.push(priceArr[i]);
+      } else {
+        clusters.push(group.reduce((s, p) => s + p, 0) / group.length);
+        group = [priceArr[i]];
+      }
+    }
+    clusters.push(group.reduce((s, p) => s + p, 0) / group.length);
+    return clusters;
+  }
+
+  const hvnClusters = clusterPrices(hvnBuckets);
+  let lvnClusters  = clusterPrices(lvnBuckets);
+
+  // Filter LVN yang terlalu dekat dengan POC atau HVN (selisih < clusterGap)
+  const keyLevels = [...hvnClusters, dayProfile.poc_price].filter(Boolean);
+  lvnClusters = lvnClusters.filter((lp) =>
+    keyLevels.every((kl) => Math.abs(lp - kl) > clusterGap)
+  );
+
+  // Batasi jumlah LVN: ambil yang paling jauh dari POC (paling signifikan)
+  const poc = dayProfile.poc_price ?? 0;
+  lvnClusters.sort((a, b) => Math.abs(b - poc) - Math.abs(a - poc));
+  lvnClusters = lvnClusters.slice(0, maxLvn);
+
+  return { hvn: hvnClusters, lvn: lvnClusters };
+}
+
 
 /**
  * Render utama Fixed Range Volume Profile pada High-Res Canvas 2D overlay.
@@ -132,14 +226,14 @@ export function renderVolumeProfileOverlay({
         }
       }
 
-      // 3. Garis POC (Point of Control) Horizontal & Garis Bantu (+200 / -200 dan +20 / -20)
+      // 3. Garis POC (Point of Control) — Putih Tebal
       const pocPrice = dayProfile.poc_price;
       if (pocPrice !== null && pocPrice !== undefined) {
-        // Garis Utama POC (Putih Tebal)
         const pocY = candleSeries.priceToCoordinate(pocPrice);
         if (pocY !== null && pocY !== undefined && pocY >= -50 && pocY <= rect.height + 50) {
           ctx.strokeStyle = "rgba(255, 255, 255, 0.95)";
           ctx.lineWidth = 2;
+          ctx.setLineDash([]);
           ctx.beginPath();
           ctx.moveTo(dayLeftX, pocY);
           ctx.lineTo(dayRightX, pocY);
@@ -151,31 +245,52 @@ export function renderVolumeProfileOverlay({
           ctx.fillText(`POC: ${pocPrice.toFixed(1)}`, dayLeftX + 4, pocY - 3);
         }
 
-        // Daftar Garis Bantu yang akan digambar: [+200, -200, +20, -20]
-        const helperLevels = [
-          { price: pocPrice + 200, label: `+200 (${(pocPrice + 200).toFixed(1)})`, color: "rgba(61, 220, 151, 0.85)" },
-          { price: pocPrice - 200, label: `-200 (${(pocPrice - 200).toFixed(1)})`, color: "rgba(239, 83, 80, 0.85)" },
-          { price: pocPrice + 20,  label: `+20 (${(pocPrice + 20).toFixed(1)})`,   color: "rgba(61, 220, 151, 0.65)" },
-          { price: pocPrice - 20,  label: `-20 (${(pocPrice - 20).toFixed(1)})`,   color: "rgba(239, 83, 80, 0.65)" },
-        ];
+        // 4. HVN & LVN — dihitung dinamis dari volume profile (tanpa library eksternal)
+        const { hvn, lvn } = computeHvnLvn(dayProfile);
 
-        for (const lvl of helperLevels) {
-          const y = candleSeries.priceToCoordinate(lvl.price);
-          if (y !== null && y !== undefined && y >= 0 && y <= rect.height) {
-            ctx.strokeStyle = lvl.color;
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([5, 3]);
-            ctx.beginPath();
-            ctx.moveTo(dayLeftX, y);
-            ctx.lineTo(dayRightX, y);
-            ctx.stroke();
-            ctx.setLineDash([]);
+        // --- HVN: High Volume Node — Cyan solid dengan glow ---
+        // Makna: Level harga dengan transaksi sangat padat → support/resistance kuat
+        for (const hvnPrice of hvn) {
+          if (Math.abs(hvnPrice - pocPrice) < 2) continue; // skip jika terlalu dekat POC
 
-            // Label Teks di samping garis
-            ctx.fillStyle = lvl.color;
-            ctx.font = "10px 'JetBrains Mono', monospace";
-            ctx.fillText(lvl.label, dayLeftX + 4, y - 3);
-          }
+          const hvnY = candleSeries.priceToCoordinate(hvnPrice);
+          if (hvnY === null || hvnY === undefined || hvnY < 0 || hvnY > rect.height) continue;
+
+          ctx.save();
+          ctx.shadowColor = "rgba(0, 229, 255, 0.5)";
+          ctx.shadowBlur = 4;
+          ctx.strokeStyle = "rgba(0, 229, 255, 0.80)";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(dayLeftX, hvnY);
+          ctx.lineTo(dayRightX, hvnY);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.fillStyle = "rgba(0, 229, 255, 0.90)";
+          ctx.font = "bold 9px 'JetBrains Mono', monospace";
+          ctx.fillText(`HVN ${hvnPrice.toFixed(1)}`, dayLeftX + 4, hvnY - 3);
+        }
+
+        // --- LVN: Low Volume Node — Oranye dashed tipis ---
+        // Makna: Area volume rendah → harga melewatinya cepat (low friction zone)
+        for (const lvnPrice of lvn) {
+          const lvnY = candleSeries.priceToCoordinate(lvnPrice);
+          if (lvnY === null || lvnY === undefined || lvnY < 0 || lvnY > rect.height) continue;
+
+          ctx.strokeStyle = "rgba(255, 167, 38, 0.65)";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(dayLeftX, lvnY);
+          ctx.lineTo(dayRightX, lvnY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = "rgba(255, 167, 38, 0.70)";
+          ctx.font = "9px 'JetBrains Mono', monospace";
+          ctx.fillText(`LVN ${lvnPrice.toFixed(1)}`, dayLeftX + 4, lvnY - 3);
         }
       }
     }

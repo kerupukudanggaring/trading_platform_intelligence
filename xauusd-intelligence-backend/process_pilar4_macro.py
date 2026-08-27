@@ -148,12 +148,22 @@ def filter_relevant_events(events: list) -> list:
 
 # Mapping nama event Trading Economics -> Forex Factory
 # Key: nama di TE (lowercase), Value: nama di FF (exact match)
+# PENTING: nama TE diambil PERSIS dari get_text() pada elemen .calendar-event,
+# kemudian di-lowercase. Jalankan debug_te_names.py untuk menemukan nama baru.
 TE_TO_FF_NAME_MAP = {
     # CPI
     "core inflation rate mom": "Core CPI m/m",
     "core inflation rate yoy": "Core CPI y/y",
     "inflation rate mom": "CPI m/m",
     "inflation rate yoy": "CPI y/y",
+    # PCE (Core PCE -- nama TE sebenarnya berakhir 'MoM' bukan 'mom')
+    "core pce price index mom": "Core PCE Price Index m/m",
+    "core pce price index mom": "Core PCE Price Index m/m",     # alias lowercase
+    "core pce price index moм": "Core PCE Price Index m/m",     # typo-safe alias
+    "core pce price index moм": "Core PCE Price Index m/m",
+    "pce price index mom": "PCE Price Index m/m",
+    "pce price index yoy": "PCE Price Index y/y",
+    "core pce price index yoy": "Core PCE Price Index y/y",
     # PPI (nama TE yang benar)
     "ppi mom": "PPI m/m",
     "ppi yoy": "PPI y/y",
@@ -170,11 +180,17 @@ TE_TO_FF_NAME_MAP = {
     "adp employment change": "ADP Non-Farm Employment Change",
     "initial jobless claims": "Unemployment Claims",
     "continuing jobless claims": "Continuing Jobless Claims",
-    # GDP
-    "gdp growth rate": "Preliminary GDP q/q",
+    # GDP  -- PENTING: value harus SAMA PERSIS dengan nama di DB (dari FF feed)
+    "gdp growth rate": "Prelim GDP q/q",
     "gdp growth rate qoq adv": "Advance GDP q/q",
-    "gdp growth rate qoq 2nd est": "Preliminary GDP q/q",
+    "gdp growth rate qoq 2nd est": "Prelim GDP q/q",
     "gdp growth rate qoq final": "Final GDP q/q",
+    "preliminary gdp q/q": "Prelim GDP q/q",  # alias jika FF pernah pakai nama panjang
+    # GDP Price Index (TE: 'GDP Price Index QoQ 2nd Est')
+    "gdp price index qoq 2nd est": "Prelim GDP Price Index q/q",
+    "gdp price index qoq adv": "Advance GDP Price Index q/q",
+    "gdp price index qoq final": "Final GDP Price Index q/q",
+    "gdp price index": "Prelim GDP Price Index q/q",
     # Retail Sales
     "retail sales mom": "Retail Sales m/m",
     "core retail sales mom": "Core Retail Sales m/m",
@@ -182,6 +198,7 @@ TE_TO_FF_NAME_MAP = {
     # PMI
     "ism manufacturing pmi": "ISM Manufacturing PMI",
     "ism services pmi": "ISM Services PMI",
+    "chicago pmi": "Chicago PMI",
     # Fed
     "federal funds rate": "Federal Funds Rate",
     "fomc interest rate decision": "Federal Funds Rate",
@@ -190,16 +207,23 @@ TE_TO_FF_NAME_MAP = {
     "average hourly earnings yoy": "Average Hourly Earnings y/y",
     # Durable Goods
     "durable goods orders mom": "Core Durable Goods Orders m/m",
+    "durable goods orders mom": "Core Durable Goods Orders m/m",
     "core durable goods orders mom": "Core Durable Goods Orders m/m",
     # Housing
     "housing starts": "Housing Starts",
     "building permits": "Building Permits",
     "building permits prel": "Building Permits",
     "existing home sales": "Existing Home Sales",
-    # Consumer Sentiment
+    # Consumer Confidence & Sentiment
+    "cb consumer confidence": "CB Consumer Confidence",
     "consumer sentiment": "Prelim UoM Consumer Sentiment",
     "michigan consumer sentiment": "Prelim UoM Consumer Sentiment",
     "michigan consumer sentiment prel": "Prelim UoM Consumer Sentiment",
+    "michigan consumer sentiment final": "Michigan Consumer Sentiment Final",
+    "michigan consumer sentiment prelim": "Prelim UoM Consumer Sentiment",
+    "michigan inflation expectations": "Prelim UoM Inflation Expectations",
+    "michigan inflation expectations final": "Revised UoM Inflation Expectations",
+    "michigan 5 year inflation expectations final": "Revised UoM Inflation Expectations",
     # Trade
     "trade balance": "Trade Balance",
     "current account": "Current Account",
@@ -212,7 +236,15 @@ TE_TO_FF_NAME_MAP = {
     "jolts job openings": "JOLTS Job Openings",
     # Productivity
     "nonfarm productivity qoq": "Non-Farm Productivity q/q",
+    "nonfarm productivity qoq final": "Non-Farm Productivity q/q",
     "unit labor costs qoq": "Unit Labor Costs q/q",
+    "unit labour costs qoq final": "Unit Labor Costs q/q",
+    # Payrolls Revision
+    "non farm payrolls annual revision prel": "Prelim Benchmark Payrolls Revision",
+    # UoM Revised (final)
+    "michigan consumer sentiment final": "Revised UoM Consumer Sentiment",
+    "revised uom consumer sentiment": "Revised UoM Consumer Sentiment",
+    "revised uom inflation expectations": "Revised UoM Inflation Expectations",
 }
 
 
@@ -380,17 +412,35 @@ def calculate_macro_score(event_name: str, actual: str | None, forecast: str | N
             return -1
         return 0
         
-    # 5. Data ekonomi pendukung lainnya (Retail Sales, Manufacturing Index, dll.)
-    # Secara umum: Data jelek (actual < forecast) -> USD turun -> Emas Naik (+1)
-    # Data bagus (actual > forecast) -> USD naik -> Emas Turun (-1)
-    if "retail sales" in name or "manufacturing" in name or "pmi" in name or "index" in name or "housing" in name or "permits" in name or "starts" in name or "orders" in name or "production" in name or "sentiment" in name:
+    # 5. Sentimen Konsumen (Consumer Confidence, Consumer Sentiment, UoM)
+    # Kepercayaan konsumen turun (jelek) -> Ekonomi lesu -> USD melemah -> Emas Naik (+1)
+    # Kepercayaan konsumen naik (bagus) -> Ekonomi kuat -> USD menguat -> Emas Turun (-1)
+    if "consumer confidence" in name or "consumer sentiment" in name or "uom" in name:
         if act_val < fct_val:
             return 1
         elif act_val > fct_val:
             return -1
         return 0
-        
+
+    # 6. Data ekonomi pendukung lainnya (Retail Sales, Manufacturing Index, dll.)
+    # Secara umum: Data jelek (actual < forecast) -> USD turun -> Emas Naik (+1)
+    # Data bagus (actual > forecast) -> USD naik -> Emas Turun (-1)
+    if (
+        "retail sales" in name or "manufacturing" in name or "pmi" in name
+        or "index" in name or "housing" in name or "permits" in name
+        or "starts" in name or "orders" in name or "production" in name
+        or "sentiment" in name or "confidence" in name or "trade balance" in name
+        or "durable goods" in name or "jolts" in name or "job openings" in name
+        or "capacity utilization" in name or "industrial" in name
+    ):
+        if act_val < fct_val:
+            return 1
+        elif act_val > fct_val:
+            return -1
+        return 0
+
     return 0
+
 
 
 def _get_week_str_for_event(event_time: datetime) -> str:
