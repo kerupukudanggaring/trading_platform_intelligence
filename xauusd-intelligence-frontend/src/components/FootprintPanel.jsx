@@ -516,7 +516,7 @@ const FootprintPanel = ({ footprintData, trueDailyPoc, height }) => {
     return (
       <div className="panel footprint-panel" style={height ? { height: typeof height === 'number' ? `${height}px` : height } : {}}>
         <div className="fp-panel-header">
-          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Footprint Chart</h2>
+          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>GC1! Footprint Chart</h2>
         </div>
         <div className="loading-overlay">No footprint data available</div>
       </div>
@@ -528,14 +528,14 @@ const FootprintPanel = ({ footprintData, trueDailyPoc, height }) => {
   return (
     <div className="panel footprint-panel" style={wrapperStyle}>
       <div className="fp-panel-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Footprint Chart</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>GC1! Footprint Chart</h2>
           <button 
             className="panel-btn" 
             onClick={() => setShowDailyPoc(!showDailyPoc)}
-            style={{ padding: '4px 10px', fontSize: '12px', background: showDailyPoc ? 'rgba(0, 229, 255, 0.15)' : 'rgba(255,255,255,0.1)', color: showDailyPoc ? '#00e5ff' : '#fff', border: `1px solid ${showDailyPoc ? '#00e5ff' : 'rgba(255,255,255,0.2)'}`, borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s ease-in-out' }}
+            style={{ padding: '4px 8px', fontSize: '11px', background: showDailyPoc ? 'rgba(0, 229, 255, 0.15)' : 'rgba(255,255,255,0.1)', color: showDailyPoc ? '#00e5ff' : '#fff', border: `1px solid ${showDailyPoc ? '#00e5ff' : 'rgba(255,255,255,0.2)'}`, borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s ease-in-out', whiteSpace: 'nowrap' }}
           >
-            {showDailyPoc ? 'Hide Daily POC' : 'Show Daily POC'}
+            {showDailyPoc ? 'Hide POC' : 'Show POC'}
           </button>
         </div>
         <div className="legend">
